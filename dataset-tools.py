@@ -11,7 +11,7 @@ def parse_args():
 	parser = argparse.ArgumentParser(description=desc)
 
 	parser.add_argument('--verbose', action='store_true',
-		help='Boolean flag indicating if statements should be printed to the console.')
+		help='Print progress to console.')
 
 	parser.add_argument('--input_folder', type=str,
 		default='./input/',
@@ -41,7 +41,7 @@ def parse_args():
 		help='Adds mirror augmentation.')
 
 	parser.add_argument('--rotate', action='store_true',
-		help='Adds 90deg rotation augmentation.')
+		help='Adds 90 degree rotation augmentation.')
 
 	args = parser.parse_args()
 	return args
