@@ -1,6 +1,13 @@
 # dataset-tools
 Tools for quickly normalizing image datasets for machine learning. 
 
+# Installation
+```
+git clone https://github.com/dvschultz/dataset-tools.git
+cd dataset-tools
+pip install -r requirements.txt
+```
+
 # Basic Usage
 ```
 python dataset-tools.py --input_folder path/to/input/ --output_folder path/to/output/
