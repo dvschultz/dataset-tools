@@ -22,3 +22,7 @@ python dataset-tools.py --input_folder path/to/input/ --output_folder path/to/ou
 * `--direction`: Paired Direction. For use with pix2pix process. *Options*: `AtoB`,`BtoA`.  *Default*: `AtoB`
 * `--mirror`: Adds mirror augmentation.
 * `--rotate`: Adds 90 degree rotation augmentation.
+* `--border_type`: Border style to use when using the `square` process type *Options*: `stretch`,`reflect`,`solid` (`solid` requires `--border-color`) *Default*: `stretch`
+* `--border_color`: border color to use with the `solid` border type; use BGR values from 0 to 255 *Example*: `255,0,0` is blue
+
+

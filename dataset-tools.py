@@ -33,6 +33,14 @@ def parse_args():
 		default='AtoB',
 		help='Paired Direction. For use with pix2pix process. ["AtoB","BtoA"] (default: %(default)s)')
 
+	parser.add_argument('--border_type', type=str,
+		default='stretch',
+		help='Border style to use when using the square process type ["stretch","reflect","solid"] (default: %(default)s)')
+
+	parser.add_argument('--border_color', type=str,
+		default='255,255,255',
+		help='border color to use with the `solid` border type; use bgr values (default: %(default)s)')
+
 	# parser.add_argument('--blur_size', type=int, 
 	# 	default=3,
 	# 	help='Blur size. For use with "canny" process. (default: %(default)s)')
@@ -118,7 +126,7 @@ def makeResize(img,filename,scale,flip=False,rotate=False):
 	# save out 256
 	cv2.imwrite(os.path.join(remakePath, new_file), img_copy)
 
-	if (flip):
+	if (args.mirror):
 		flip = img_copy.copy()
 		flip = cv2.flip(flip, 1)
 		flip_file = os.path.splitext(filename)[0] + "-flipped.jpg"
@@ -144,8 +152,15 @@ def makeSquare(img,filename,scale,flip=False):
 		os.makedirs(sqPath)
 
 	bType = cv2.BORDER_REPLICATE
+	if(args.border_type == 'solid'):
+		bType = cv2.BORDER_CONSTANT
+	elif (args.border_type == 'reflect'):
+		bType = cv2.BORDER_REFLECT
 	img_sq = img.copy()
 	img_sq = image_resize(img_sq, max = scale)
+
+	bColor = [int(item) for item in args.border_color.split(',')]
+	print(bColor)
 
 	(h, w) = img_sq.shape[:2]
 	if(h > w):
@@ -153,21 +168,17 @@ def makeSquare(img,filename,scale,flip=False):
 		# print("pad left/right")
 		diff = h-w
 		if(diff%2 == 0):
-			# print("even")
-			img_sq = cv2.copyMakeBorder(img_sq, 0, 0, int(diff/2), int(diff/2), bType)
+			img_sq = cv2.copyMakeBorder(img_sq, 0, 0, int(diff/2), int(diff/2), bType,value=bColor)
 		else:
-			# print("odd")
-			img_sq = cv2.copyMakeBorder(img_sq, 0, 0, int(diff/2)+1, int(diff/2), bType)
+			img_sq = cv2.copyMakeBorder(img_sq, 0, 0, int(diff/2)+1, int(diff/2), bType,value=bColor)
 	elif(w > h):
 		# pad top/bottom
 		print("pad top/bottom")
 		diff = w-h
 		if(diff%2 == 0):
-			# print("even")
-			img_sq = cv2.copyMakeBorder(img_sq, int(diff/2), int(diff/2), 0, 0, bType)
+			img_sq = cv2.copyMakeBorder(img_sq, int(diff/2), int(diff/2), 0, 0, bType,value=bColor)
 		else:
-			# print("odd")
-			img_sq = cv2.copyMakeBorder(img_sq, int(diff/2), int(diff/2)+1, 0, 0, bType)
+			img_sq = cv2.copyMakeBorder(img_sq, int(diff/2), int(diff/2)+1, 0, 0, bType,value=bColor)
 
 	new_file = os.path.splitext(filename)[0] + "-sq.jpg"
 	cv2.imwrite(os.path.join(sqPath, new_file), img_sq)
@@ -236,6 +247,7 @@ def makePix2Pix(img,filename,direction="BtoA",value=[0,0,0]):
 
 
 def processImage(img,filename):
+
 	if args.process_type == "resize":	
 		makeResize(img,filename,args.max_size,args.mirror,args.rotate)
 	if args.process_type == "square":
