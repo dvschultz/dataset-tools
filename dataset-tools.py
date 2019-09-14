@@ -3,6 +3,7 @@ import numpy as np
 import os
 import imutils
 import cv2
+import random
 
 # print(cv2.__version__)
 
@@ -23,11 +24,15 @@ def parse_args():
 
 	parser.add_argument('--process_type', type=str,
 		default='resize',
-		help='Process to use. ["resize","square","crop_to_square","canny","pix2pix"] (default: %(default)s)')
+		help='Process to use. ["resize","square","crop_to_square","canny","pix2pix","crop_square_patch","scale"] (default: %(default)s)')
 
 	parser.add_argument('--max_size', type=int, 
 		default=512,
 		help='Maximum width or height of the output images. (default: %(default)s)')
+
+	parser.add_argument('--scale', type=float, 
+		default=2.0,
+		help='Scalar value. For use with scale process type (default: %(default)s)')
 
 	parser.add_argument('--direction', type=str,
 		default='AtoB',
@@ -98,6 +103,15 @@ def image_resize(image, width = None, height = None, max = None, inter = cv2.INT
     # return the resized image
     return resized
 
+def image_scale(image, scalar = 1.0, inter = cv2.INTER_AREA):
+	(h, w) = image.shape[:2]
+	dim = (int(w*scalar),int(h*scalar))
+	# resize the image
+	resized = cv2.resize(image, dim, interpolation = inter)
+	
+	# return the resized image
+	return resized
+
 def crop_to_square(img):
 	(h, w) = img.shape[:2]
 	if w > h:
@@ -113,6 +127,15 @@ def crop_to_square(img):
 	else:
 		return img
 
+def crop_square_patch(img, imgSize):
+	(h, w) = img.shape[:2]
+
+	rH = random.randint(0,h-imgSize)
+	rW = random.randint(0,w-imgSize)
+	cropped = img[rH:rH+imgSize,rW:rW+imgSize]
+
+	return cropped
+
 def makeResize(img,filename,scale,flip=False,rotate=False):
 
 	remakePath = args.output_folder + str(scale)+"/"
@@ -121,7 +144,7 @@ def makeResize(img,filename,scale,flip=False,rotate=False):
 
 	img_copy = img.copy()
 	img_copy = image_resize(img_copy, max = scale)
-	new_file = os.path.splitext(filename)[0] + ".jpg"
+	new_file = os.path.splitext(filename)[0] + ".png"
 	# new_file = str(count) + ".jpg"
 	# save out 256
 	cv2.imwrite(os.path.join(remakePath, new_file), img_copy)
@@ -129,20 +152,54 @@ def makeResize(img,filename,scale,flip=False,rotate=False):
 	if (args.mirror):
 		flip = img_copy.copy()
 		flip = cv2.flip(flip, 1)
-		flip_file = os.path.splitext(filename)[0] + "-flipped.jpg"
+		flip_file = os.path.splitext(filename)[0] + "-flipped.png"
 		cv2.imwrite(os.path.join(remakePath, flip_file), flip)
 	if(rotate):
 		r = img_copy.copy() 
 		r = imutils.rotate_bound(r, 90)
-		r_file = os.path.splitext(filename)[0] + "-rot90.jpg"
+		r_file = os.path.splitext(filename)[0] + "-rot90.png"
 		cv2.imwrite(os.path.join(remakePath, r_file), r)
 
 		r = imutils.rotate_bound(r, 90)
-		r_file = os.path.splitext(filename)[0] + "-rot180.jpg"
+		r_file = os.path.splitext(filename)[0] + "-rot180.png"
 		cv2.imwrite(os.path.join(remakePath, r_file), r)
 
 		r = imutils.rotate_bound(r, 90)
-		r_file = os.path.splitext(filename)[0] + "-rot270.jpg"
+		r_file = os.path.splitext(filename)[0] + "-rot270.png"
+		cv2.imwrite(os.path.join(remakePath, r_file), r)
+
+def makeScale(img,filename,scale,flip=False,rotate=False):
+
+	remakePath = args.output_folder + "scale_"+str(scale)+"/"
+	if not os.path.exists(remakePath):
+		os.makedirs(remakePath)
+
+	img_copy = img.copy()
+	
+	img_copy = image_scale(img_copy, scale)
+
+	new_file = os.path.splitext(filename)[0] + ".png"
+	# new_file = str(count) + ".jpg"
+	# save out 256
+	cv2.imwrite(os.path.join(remakePath, new_file), img_copy)
+
+	if (args.mirror):
+		flip = img_copy.copy()
+		flip = cv2.flip(flip, 1)
+		flip_file = os.path.splitext(filename)[0] + "-flipped.png"
+		cv2.imwrite(os.path.join(remakePath, flip_file), flip)
+	if(rotate):
+		r = img_copy.copy() 
+		r = imutils.rotate_bound(r, 90)
+		r_file = os.path.splitext(filename)[0] + "-rot90.png"
+		cv2.imwrite(os.path.join(remakePath, r_file), r)
+
+		r = imutils.rotate_bound(r, 90)
+		r_file = os.path.splitext(filename)[0] + "-rot180.png"
+		cv2.imwrite(os.path.join(remakePath, r_file), r)
+
+		r = imutils.rotate_bound(r, 90)
+		r_file = os.path.splitext(filename)[0] + "-rot270.png"
 		cv2.imwrite(os.path.join(remakePath, r_file), r)
 
 
@@ -180,13 +237,13 @@ def makeSquare(img,filename,scale,flip=False):
 		else:
 			img_sq = cv2.copyMakeBorder(img_sq, int(diff/2), int(diff/2)+1, 0, 0, bType,value=bColor)
 
-	new_file = os.path.splitext(filename)[0] + "-sq.jpg"
+	new_file = os.path.splitext(filename)[0] + "-sq.png"
 	cv2.imwrite(os.path.join(sqPath, new_file), img_sq)
 
 	if(flip):
 		flip_img = img_sq.copy()
 		flip_img = cv2.flip(flip_img, 1)
-		flip_file = os.path.splitext(filename)[0] + "-flipped-sq.jpg"
+		flip_file = os.path.splitext(filename)[0] + "-flipped-sq.png"
 		cv2.imwrite(os.path.join(sqPath, flip_file), flip_img)
 
 	
@@ -205,7 +262,7 @@ def makeCanny(img,filename,scale,medianBlurScale=3):
 	gray = cv2.Canny(gray,100,300)
 
 	# save out
-	new_file = os.path.splitext(filename)[0] + ".jpg"
+	new_file = os.path.splitext(filename)[0] + ".png"
 	# new_file = str(count) + ".jpg"
 	cv2.imwrite(os.path.join(make_path, new_file), gray)
 
@@ -218,14 +275,32 @@ def makeSquareCrop(img,filename,scale,flip=False):
 	img_copy = crop_to_square(img_copy)
 	img_copy = image_resize(img_copy, max = scale)
 
-	new_file = str(count) + ".jpg"
-	cv2.imwrite(os.path.join(make_path, new_file), img_copy)
+	new_file = os.path.splitext(filename)[0] + ".png"
+	cv2.imwrite(os.path.join(make_path, new_file), img_copy, [cv2.IMWRITE_PNG_COMPRESSION, 0])
 
 	if(flip):
 		flip_img = img_copy.copy()
 		flip_img = cv2.flip(flip_img, 1)
 		# flip_file = str(count+int(1)) + ".jpg"
-		flip_file = os.path.splitext(filename)[0] + "-flipped.jpg"
+		flip_file = os.path.splitext(filename)[0] + "-flipped.png"
+		cv2.imwrite(os.path.join(make_path, flip_file), flip_img)
+
+def makeSquareCropPatch(img,filename,scale,flip=False):
+	make_path = args.output_folder + "sq-"+str(scale)+"/"
+	if not os.path.exists(make_path):
+		os.makedirs(make_path)
+
+	img_copy = img.copy()
+	img_copy = crop_square_patch(img_copy,args.max_size)
+
+	new_file = os.path.splitext(filename)[0] + ".png"
+	cv2.imwrite(os.path.join(make_path, new_file), img_copy, [cv2.IMWRITE_PNG_COMPRESSION, 0])
+
+	if(flip):
+		flip_img = img_copy.copy()
+		flip_img = cv2.flip(flip_img, 1)
+		# flip_file = str(count+int(1)) + ".jpg"
+		flip_file = os.path.splitext(filename)[0] + "-flipped.png"
 		cv2.imwrite(os.path.join(make_path, flip_file), flip_img)
 
 
@@ -242,7 +317,7 @@ def makePix2Pix(img,filename,direction="BtoA",value=[0,0,0]):
 	if(direction is "BtoA"):
 		img_p2p = cv2.copyMakeBorder(img_p2p, 0, 0, w, 0, bType, None, value)
 		# new_file = str(count) + ".jpg"
-		new_file = os.path.splitext(filename)[0] + ".jpg"
+		new_file = os.path.splitext(filename)[0] + ".png"
 		cv2.imwrite(os.path.join(make_path, new_file), img_p2p)
 
 
@@ -258,12 +333,17 @@ def processImage(img,filename):
 		makeCanny(img,filename,args.max_size)
 	if args.process_type == "pix2pix":
 		makePix2Pix(img,filename)
+	if args.process_type == "crop_square_patch":
+		makeSquareCropPatch(img,filename,args.max_size,args.mirror)
+	if args.process_type == "scale":
+		makeScale(img,filename,args.scale,args.mirror,args.rotate)
 
 def main():
 	global args
 	global count
 	count = int(0)
 	args = parse_args()
+	os.environ['OPENCV_IO_ENABLE_JASPER']= "true"
 
 	for root, subdirs, files in os.walk(args.input_folder):
 		print('--\nroot = ' + root)
