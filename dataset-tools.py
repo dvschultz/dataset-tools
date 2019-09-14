@@ -136,7 +136,7 @@ def crop_square_patch(img, imgSize):
 
 	return cropped
 
-def makeResize(img,filename,scale,flip=False,rotate=False):
+def makeResize(img,filename,scale):
 
 	remakePath = args.output_folder + str(scale)+"/"
 	if not os.path.exists(remakePath):
@@ -152,7 +152,7 @@ def makeResize(img,filename,scale,flip=False,rotate=False):
 	if (args.mirror): flipImage(img_copy,new_file,remakePath)
 	if (args.rotate): rotateImage(img_copy,new_file,remakePath)
 
-def makeScale(img,filename,scale,flip=False,rotate=False):
+def makeScale(img,filename,scale):
 
 	remakePath = args.output_folder + "scale_"+str(scale)+"/"
 	if not os.path.exists(remakePath):
@@ -232,9 +232,10 @@ def makeCanny(img,filename,scale,medianBlurScale=3):
 	cv2.imwrite(os.path.join(make_path, new_file), gray, [cv2.IMWRITE_PNG_COMPRESSION, 0])
 
 	if (args.mirror): flipImage(img_copy,new_file,make_path)
+	if (args.rotate): rotateImage(img_copy,new_file,make_path)
 
 
-def makeSquareCrop(img,filename,scale,flip=False):
+def makeSquareCrop(img,filename,scale):
 	make_path = args.output_folder + "sq-"+str(scale)+"/"
 	if not os.path.exists(make_path):
 		os.makedirs(make_path)
@@ -247,8 +248,9 @@ def makeSquareCrop(img,filename,scale,flip=False):
 	cv2.imwrite(os.path.join(make_path, new_file), img_copy, [cv2.IMWRITE_PNG_COMPRESSION, 0])
 
 	if (args.mirror): flipImage(img_copy,new_file,make_path)
+	if (args.rotate): rotateImage(img_copy,new_file,make_path)
 
-def makeManySquares(img,filename,scale,flip=False,rotate=False):
+def makeManySquares(img,filename,scale):
 	make_path = args.output_folder + "many_sqaures-"+str(scale)+"/"
 	if not os.path.exists(make_path):
 		os.makedirs(make_path)
@@ -272,7 +274,7 @@ def makeManySquares(img,filename,scale,flip=False,rotate=False):
 		if(rotate): rotateImage(img,filename,make_path)
 		
 
-def makeSquareCropPatch(img,filename,scale,flip=False):
+def makeSquareCropPatch(img,filename,scale):
 	make_path = args.output_folder + "sq-"+str(scale)+"/"
 	if not os.path.exists(make_path):
 		os.makedirs(make_path)
@@ -284,6 +286,7 @@ def makeSquareCropPatch(img,filename,scale,flip=False):
 	cv2.imwrite(os.path.join(make_path, new_file), img_copy, [cv2.IMWRITE_PNG_COMPRESSION, 0])
 
 	if (args.mirror): flipImage(img_copy,new_file,make_path)
+	if (args.rotate): rotateImage(img_copy,new_file,make_path)
 
 def makePix2Pix(img,filename,direction="BtoA",value=[0,0,0]):
 	img_p2p = img.copy()
@@ -323,21 +326,21 @@ def rotateImage(img,filename,path):
 def processImage(img,filename):
 
 	if args.process_type == "resize":	
-		makeResize(img,filename,args.max_size,args.mirror,args.rotate)
+		makeResize(img,filename,args.max_size)
 	if args.process_type == "square":
 		makeSquare(img,filename,args.max_size)
 	if args.process_type == "crop_to_square":
-		makeSquareCrop(img,filename,args.max_size,args.mirror)
+		makeSquareCrop(img,filename,args.max_size)
 	if args.process_type == "canny":
 		makeCanny(img,filename,args.max_size)
 	if args.process_type == "pix2pix":
 		makePix2Pix(img,filename)
 	if args.process_type == "crop_square_patch":
-		makeSquareCropPatch(img,filename,args.max_size,args.mirror)
+		makeSquareCropPatch(img,filename,args.max_size)
 	if args.process_type == "scale":
-		makeScale(img,filename,args.scale,args.mirror,args.rotate)
+		makeScale(img,filename,args.scale)
 	if args.process_type == "many_squares":
-		makeManySquares(img,filename,args.max_size,args.mirror,args.rotate)
+		makeManySquares(img,filename,args.max_size)
 
 def main():
 	global args
