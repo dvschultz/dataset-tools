@@ -24,7 +24,7 @@ def parse_args():
 
 	parser.add_argument('--process_type', type=str,
 		default='resize',
-		help='Process to use. ["resize","square","crop_to_square","canny","pix2pix","crop_square_patch","scale"] (default: %(default)s)')
+		help='Process to use. ["resize","square","crop_to_square","canny","pix2pix","crop_square_patch","scale","many_squares"] (default: %(default)s)')
 
 	parser.add_argument('--max_size', type=int, 
 		default=512,
@@ -163,8 +163,6 @@ def makeScale(img,filename,scale):
 	img_copy = image_scale(img_copy, scale)
 
 	new_file = os.path.splitext(filename)[0] + ".png"
-	# new_file = str(count) + ".jpg"
-	# save out 256
 	cv2.imwrite(os.path.join(remakePath, new_file), img_copy, [cv2.IMWRITE_PNG_COMPRESSION, 0])
 
 	if (args.mirror): flipImage(img_copy,new_file,remakePath)
@@ -251,7 +249,7 @@ def makeSquareCrop(img,filename,scale):
 	if (args.rotate): rotateImage(img_copy,new_file,make_path)
 
 def makeManySquares(img,filename,scale):
-	make_path = args.output_folder + "many_sqaures-"+str(scale)+"/"
+	make_path = args.output_folder + "many_squares-"+str(scale)+"/"
 	if not os.path.exists(make_path):
 		os.makedirs(make_path)
 
@@ -260,18 +258,47 @@ def makeManySquares(img,filename,scale):
 	img_ratio = h/w
 
 	if(img_ratio >= 1.25):
+
 		#crop images from top and bottom
-		img_copy = image_resize(img_copy, max = scale)
+		crop = img_copy[0:w,0:w]
+		crop = image_resize(crop, max = scale)
+		new_file = os.path.splitext(filename)[0] + "-1.png"
+		cv2.imwrite(os.path.join(make_path, new_file), crop, [cv2.IMWRITE_PNG_COMPRESSION, 0])
+		if (args.mirror): flipImage(crop,new_file,make_path)
+		if (args.rotate): rotateImage(crop,filename,make_path)
+
+		crop = img_copy[h-w:h,0:w]
+		crop = image_resize(crop, max = scale)
+		new_file = os.path.splitext(filename)[0] + "-2.png"
+		cv2.imwrite(os.path.join(make_path, new_file), crop, [cv2.IMWRITE_PNG_COMPRESSION, 0])
+		if (args.mirror): flipImage(crop,new_file,make_path)
+		if (args.rotate): rotateImage(crop,filename,make_path)
+
 	elif(img_ratio <= .8):
 		#crop images from left and right
-		img_copy = image_resize(img_copy, max = scale)
+		print(os.path.splitext(filename)[0] + ': wide image')
+		
+		crop = img_copy[0:h,0:h]
+		crop = image_resize(crop, max = scale)
+		new_file = os.path.splitext(filename)[0] + "-wide1.png"
+		cv2.imwrite(os.path.join(make_path, new_file), crop, [cv2.IMWRITE_PNG_COMPRESSION, 0])
+		if (args.mirror): flipImage(crop,new_file,make_path)
+		if (args.rotate): rotateImage(crop,filename,make_path)
+
+		crop = img_copy[0:h,w-h:w]
+		crop = image_resize(crop, max = scale)
+		new_file = os.path.splitext(filename)[0] + "-wide2.png"
+		cv2.imwrite(os.path.join(make_path, new_file), crop, [cv2.IMWRITE_PNG_COMPRESSION, 0])
+		if (args.mirror): flipImage(crop,new_file,make_path)
+		if (args.rotate): rotateImage(crop,filename,make_path)
+
 	else:
 		img_copy = crop_to_square(img_copy)
 		img_copy = image_resize(img_copy, max = scale)
 		new_file = os.path.splitext(filename)[0] + ".png"
 		cv2.imwrite(os.path.join(make_path, new_file), img_copy, [cv2.IMWRITE_PNG_COMPRESSION, 0])
 		if (args.mirror): flipImage(img_copy,new_file,make_path)
-		if(rotate): rotateImage(img,filename,make_path)
+		if(args.rotate): rotateImage(img_copy,filename,make_path)
 		
 
 def makeSquareCropPatch(img,filename,scale):
