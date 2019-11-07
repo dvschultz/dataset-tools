@@ -56,6 +56,10 @@ def parse_args():
 	parser.add_argument('--rotate', action='store_true',
 		help='Adds 90 degree rotation augmentation.')
 
+	parser.add_argument('--file_extension', type=str,
+		default='png',
+		help='Border style to use when using the square process type ["png","jpg"] (default: %(default)s)')
+
 	args = parser.parse_args()
 	return args
 
@@ -144,10 +148,13 @@ def makeResize(img,filename,scale):
 
 	img_copy = img.copy()
 	img_copy = image_resize(img_copy, max = scale)
-	new_file = os.path.splitext(filename)[0] + ".png"
-	# new_file = str(count) + ".jpg"
-	# save out 256
-	cv2.imwrite(os.path.join(remakePath, new_file), img_copy, [cv2.IMWRITE_PNG_COMPRESSION, 0])
+
+	if(args.file_extension == "png"):
+		new_file = os.path.splitext(filename)[0] + ".png"
+		cv2.imwrite(os.path.join(remakePath, new_file), img_copy, [cv2.IMWRITE_PNG_COMPRESSION, 0])
+	elif(args.file_extension == "jpg"):
+		new_file = os.path.splitext(filename)[0] + ".jpg"
+		cv2.imwrite(os.path.join(remakePath, new_file), img_copy, [cv2.IMWRITE_JPEG_QUALITY, 90])
 
 	if (args.mirror): flipImage(img_copy,new_file,remakePath)
 	if (args.rotate): rotateImage(img_copy,new_file,remakePath)
@@ -188,7 +195,6 @@ def makeSquare(img,filename,scale):
 	(h, w) = img_sq.shape[:2]
 	if(h > w):
 		# pad left/right
-		# print("pad left/right")
 		diff = h-w
 		if(diff%2 == 0):
 			img_sq = cv2.copyMakeBorder(img_sq, 0, 0, int(diff/2), int(diff/2), bType,value=bColor)
@@ -196,15 +202,18 @@ def makeSquare(img,filename,scale):
 			img_sq = cv2.copyMakeBorder(img_sq, 0, 0, int(diff/2)+1, int(diff/2), bType,value=bColor)
 	elif(w > h):
 		# pad top/bottom
-		print("pad top/bottom")
 		diff = w-h
 		if(diff%2 == 0):
 			img_sq = cv2.copyMakeBorder(img_sq, int(diff/2), int(diff/2), 0, 0, bType,value=bColor)
 		else:
 			img_sq = cv2.copyMakeBorder(img_sq, int(diff/2), int(diff/2)+1, 0, 0, bType,value=bColor)
 
-	new_file = os.path.splitext(filename)[0] + "-sq.png"
-	cv2.imwrite(os.path.join(sqPath, new_file), img_sq, [cv2.IMWRITE_PNG_COMPRESSION, 0])
+	if(args.file_extension == "png"):
+		new_file = os.path.splitext(filename)[0] + "-sq.png"
+		cv2.imwrite(os.path.join(sqPath, new_file), img_sq, [cv2.IMWRITE_PNG_COMPRESSION, 0])
+	elif(args.file_extension == "jpg"):
+		new_file = os.path.splitext(filename)[0] + ".jpg"
+		cv2.imwrite(os.path.join(sqPath, new_file), img_sq, [cv2.IMWRITE_JPEG_QUALITY, 90])
 
 	if (args.mirror): flipImage(img_sq,new_file,sqPath)
 	if (args.rotate): rotateImage(img_sq,new_file,sqPath)
@@ -242,8 +251,12 @@ def makeSquareCrop(img,filename,scale):
 	img_copy = crop_to_square(img_copy)
 	img_copy = image_resize(img_copy, max = scale)
 
-	new_file = os.path.splitext(filename)[0] + ".png"
-	cv2.imwrite(os.path.join(make_path, new_file), img_copy, [cv2.IMWRITE_PNG_COMPRESSION, 0])
+	if(args.file_extension == "png"):
+		new_file = os.path.splitext(filename)[0] + ".png"
+		cv2.imwrite(os.path.join(make_path, new_file), img_copy, [cv2.IMWRITE_PNG_COMPRESSION, 0])
+	elif(args.file_extension == "jpg"):
+		new_file = os.path.splitext(filename)[0] + ".jpg"
+		cv2.imwrite(os.path.join(make_path, new_file), img_copy, [cv2.IMWRITE_JPEG_QUALITY, 90])
 
 	if (args.mirror): flipImage(img_copy,new_file,make_path)
 	if (args.rotate): rotateImage(img_copy,new_file,make_path)
