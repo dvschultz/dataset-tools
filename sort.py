@@ -24,7 +24,7 @@ def parse_args():
 
 	parser.add_argument('--process_type', type=str,
 		default='exclude',
-		help='Process to use. ["exclude"] (default: %(default)s)')
+		help='Process to use. ["exclude","sort"] (default: %(default)s)')
 
 	parser.add_argument('--max_size', type=int, 
 		default=2048,
@@ -33,6 +33,10 @@ def parse_args():
 	parser.add_argument('--min_size', type=int, 
 		default=1024,
 		help='Maximum width or height of the output images. (default: %(default)s)')
+
+	parser.add_argument('--min_ratio', type=float, 
+		default=1.0,
+		help='Ratio of image (height/width). (default: %(default)s)')
 
 
 	args = parser.parse_args()
@@ -53,10 +57,29 @@ def exclude(img,filename):
 		cv2.imwrite(os.path.join(make_path, new_file), img, [cv2.IMWRITE_PNG_COMPRESSION, 0])
 
 
+def sort(img,filename):
+	make_path1 = args.output_folder + "yes/"
+	make_path2 = args.output_folder + "no/"
+	if not os.path.exists(make_path1):
+		os.makedirs(make_path1)
+	if not os.path.exists(make_path2):
+		os.makedirs(make_path2)
+
+	#only works with ratio right now
+	(h, w) = img.shape[:2]
+	ratio = h/w
+	new_file = os.path.splitext(filename)[0] + ".png"
+	if(ratio>=args.min_ratio):
+		cv2.imwrite(os.path.join(make_path1, new_file), img, [cv2.IMWRITE_PNG_COMPRESSION, 0])
+	else:
+		cv2.imwrite(os.path.join(make_path2, new_file), img, [cv2.IMWRITE_PNG_COMPRESSION, 0])
+
 def processImage(img,filename):
 
 	if args.process_type == "exclude":	
 		exclude(img,filename)
+	if args.process_type == "sort":	
+		sort(img,filename)
 
 def main():
 	global args
