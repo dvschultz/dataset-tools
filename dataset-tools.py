@@ -32,11 +32,19 @@ def parse_args():
 
 	parser.add_argument('--height', type=int, 
 		default=512,
-		help='Maximum width or height of the output images. (default: %(default)s)')
+		help='Maximum height of the output image (for use with --process_type crop). (default: %(default)s)')
 
 	parser.add_argument('--width', type=int, 
 		default=512,
-		help='Maximum width or height of the output images. (default: %(default)s)')
+		help='Maximum width of output image (for use with --process_type crop). (default: %(default)s)')
+
+	parser.add_argument('--shift_y', type=int, 
+		default=0,
+		help='y coordinate shift (for use with --process_type crop). (default: %(default)s)')
+
+	parser.add_argument('--shift_x', type=int, 
+		default=0,
+		help='x coordinate shift (for use with --process_type crop). (default: %(default)s)')
 
 	parser.add_argument('--scale', type=float, 
 		default=2.0,
@@ -125,6 +133,7 @@ def image_scale(image, scalar = 1.0):
 	return resized
 
 def arbitrary_crop(img, h_crop,w_crop):
+	error = False
 	bType = cv2.BORDER_REPLICATE
 	if(args.border_type == 'solid'):
 		bType = cv2.BORDER_CONSTANT
@@ -133,13 +142,22 @@ def arbitrary_crop(img, h_crop,w_crop):
 
 	(h, w) = img.shape[:2]
 	if(h>h_crop):
-		hdiff = int((h-h_crop)/2)
-		img = img[hdiff:hdiff+h_crop,0:w]
-	if(w>w_crop):
-		wdiff = int((w-w_crop)/2)
-		img = img[0:h_crop,wdiff:wdiff+w_crop]
+		hdiff = int((h-h_crop)/2) + args.shift_y
 
-	return img
+		if( ((hdiff+h_crop) > h) or (hdiff < 0)):
+			print("error! crop settings are too much for this image")
+			error = True
+		else:
+			img = img[hdiff:hdiff+h_crop,0:w]
+	if(w>w_crop):
+		wdiff = int((w-w_crop)/2) + args.shift_x
+		
+		if( ((wdiff+w_crop) > w) or (wdiff < 0) ):
+			print("error! crop settings are too much for this image")
+			error = True
+		else:
+			img = img[0:h_crop,wdiff:wdiff+w_crop]
+	return img, error
 
 def crop_to_square(img):
 	(h, w) = img.shape[:2]
@@ -272,17 +290,20 @@ def makeCrop(img,filename):
 		os.makedirs(make_path)
 
 	img_copy = img.copy()
-	img_copy = arbitrary_crop(img_copy,args.height,args.width)
+	img_copy,error = arbitrary_crop(img_copy,args.height,args.width)
 
-	if(args.file_extension == "png"):
-		new_file = os.path.splitext(filename)[0] + ".png"
-		cv2.imwrite(os.path.join(make_path, new_file), img_copy, [cv2.IMWRITE_PNG_COMPRESSION, 0])
-	elif(args.file_extension == "jpg"):
-		new_file = os.path.splitext(filename)[0] + ".jpg"
-		cv2.imwrite(os.path.join(make_path, new_file), img_copy, [cv2.IMWRITE_JPEG_QUALITY, 90])
+	if (error==False):
+		if(args.file_extension == "png"):
+			new_file = os.path.splitext(filename)[0] + ".png"
+			cv2.imwrite(os.path.join(make_path, new_file), img_copy, [cv2.IMWRITE_PNG_COMPRESSION, 0])
+		elif(args.file_extension == "jpg"):
+			new_file = os.path.splitext(filename)[0] + ".jpg"
+			cv2.imwrite(os.path.join(make_path, new_file), img_copy, [cv2.IMWRITE_JPEG_QUALITY, 90])
 
-	if (args.mirror): flipImage(img_copy,new_file,make_path)
-	if (args.rotate): rotateImage(img_copy,new_file,make_path)
+		if (args.mirror): flipImage(img_copy,new_file,make_path)
+		if (args.rotate): rotateImage(img_copy,new_file,make_path)
+	else:
+		if(args.verbose): print(filename+" returned an error")
 
 def makeSquareCrop(img,filename,scale):
 	make_path = args.output_folder + "sq-"+str(scale)+"/"
@@ -436,14 +457,14 @@ def main():
 	os.environ['OPENCV_IO_ENABLE_JASPER']= "true"
 
 	for root, subdirs, files in os.walk(args.input_folder):
-		print('--\nroot = ' + root)
+		if(args.verbose): print('--\nroot = ' + root)
 
 		for subdir in subdirs:
-			print('\t- subdirectory ' + subdir)
+			if(args.verbose): print('\t- subdirectory ' + subdir)
 
 		for filename in files:
 			file_path = os.path.join(root, filename)
-			print('\t- file %s (full path: %s)' % (filename, file_path))
+			if(args.verbose): print('\t- file %s (full path: %s)' % (filename, file_path))
 			
 			img = cv2.imread(file_path)
 
