@@ -24,9 +24,17 @@ def parse_args():
 
 	parser.add_argument('--process_type', type=str,
 		default='resize',
-		help='Process to use. ["resize","square","crop_to_square","canny","pix2pix","crop_square_patch","scale","many_squares"] (default: %(default)s)')
+		help='Process to use. ["resize","square","crop_to_square","canny","pix2pix","crop_square_patch","scale","many_squares","crop"] (default: %(default)s)')
 
 	parser.add_argument('--max_size', type=int, 
+		default=512,
+		help='Maximum width or height of the output images. (default: %(default)s)')
+
+	parser.add_argument('--height', type=int, 
+		default=512,
+		help='Maximum width or height of the output images. (default: %(default)s)')
+
+	parser.add_argument('--width', type=int, 
 		default=512,
 		help='Maximum width or height of the output images. (default: %(default)s)')
 
@@ -115,6 +123,23 @@ def image_scale(image, scalar = 1.0):
 	
 	# return the resized image
 	return resized
+
+def arbitrary_crop(img, h_crop,w_crop):
+	bType = cv2.BORDER_REPLICATE
+	if(args.border_type == 'solid'):
+		bType = cv2.BORDER_CONSTANT
+	elif (args.border_type == 'reflect'):
+		bType = cv2.BORDER_REFLECT
+
+	(h, w) = img.shape[:2]
+	if(h>h_crop):
+		hdiff = int((h-h_crop)/2)
+		img = img[hdiff:hdiff+h_crop,0:w]
+	if(w>w_crop):
+		wdiff = int((w-w_crop)/2)
+		img = img[0:h_crop,wdiff:wdiff+w_crop]
+
+	return img
 
 def crop_to_square(img):
 	(h, w) = img.shape[:2]
@@ -241,6 +266,23 @@ def makeCanny(img,filename,scale,medianBlurScale=3):
 	if (args.mirror): flipImage(img_copy,new_file,make_path)
 	if (args.rotate): rotateImage(img_copy,new_file,make_path)
 
+def makeCrop(img,filename):
+	make_path = args.output_folder + "crop-"+str(args.height)+"x"+str(args.width)+"/"
+	if not os.path.exists(make_path):
+		os.makedirs(make_path)
+
+	img_copy = img.copy()
+	img_copy = arbitrary_crop(img_copy,args.height,args.width)
+
+	if(args.file_extension == "png"):
+		new_file = os.path.splitext(filename)[0] + ".png"
+		cv2.imwrite(os.path.join(make_path, new_file), img_copy, [cv2.IMWRITE_PNG_COMPRESSION, 0])
+	elif(args.file_extension == "jpg"):
+		new_file = os.path.splitext(filename)[0] + ".jpg"
+		cv2.imwrite(os.path.join(make_path, new_file), img_copy, [cv2.IMWRITE_JPEG_QUALITY, 90])
+
+	if (args.mirror): flipImage(img_copy,new_file,make_path)
+	if (args.rotate): rotateImage(img_copy,new_file,make_path)
 
 def makeSquareCrop(img,filename,scale):
 	make_path = args.output_folder + "sq-"+str(scale)+"/"
@@ -381,6 +423,8 @@ def processImage(img,filename):
 		makeScale(img,filename,args.scale)
 	if args.process_type == "many_squares":
 		makeManySquares(img,filename,args.max_size)
+	if args.process_type == "crop":
+		makeCrop(img,filename)
 
 def main():
 	global args
