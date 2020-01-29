@@ -14,6 +14,9 @@ def parse_args():
 	parser.add_argument('--verbose', action='store_true',
 		help='Print progress to console.')
 
+	parser.add_argument('--exact', action='store_true',
+		help='match to exact specs')
+
 	parser.add_argument('--input_folder', type=str,
 		default='./input/',
 		help='Directory path to the inputs folder. (default: %(default)s)')
@@ -37,6 +40,11 @@ def parse_args():
 	parser.add_argument('--min_ratio', type=float, 
 		default=1.0,
 		help='Ratio of image (height/width). (default: %(default)s)')
+
+	parser.add_argument('--file_extension', type=str,
+		default='png',
+		help='file type ["png","jpg"] (default: %(default)s)')
+
 
 
 	args = parser.parse_args()
@@ -65,15 +73,29 @@ def sort(img,filename):
 	if not os.path.exists(make_path2):
 		os.makedirs(make_path2)
 
-	#only works with ratio right now
 	(h, w) = img.shape[:2]
 	ratio = h/w
-	new_file = os.path.splitext(filename)[0] + ".png"
-	if(ratio>=args.min_ratio):
-		cv2.imwrite(os.path.join(make_path1, new_file), img, [cv2.IMWRITE_PNG_COMPRESSION, 0])
-	else:
-		cv2.imwrite(os.path.join(make_path2, new_file), img, [cv2.IMWRITE_PNG_COMPRESSION, 0])
 
+	if(args.exact == True):
+		if((ratio >= 1.0) and (h == args.max_size) and (w == args.min_size)):
+			path = make_path1
+		elif((ratio < 1.0) and (w == args.max_size) and (h == args.min_size)):
+			path = make_path1
+		else:
+			path = make_path2
+	else:
+		#only works with ratio right now
+		if(ratio>=args.min_ratio):
+			path = make_path1
+		else:
+			path = make_path2
+
+	if(args.file_extension == "png"):
+		new_file = os.path.splitext(filename)[0] + ".png"
+		cv2.imwrite(os.path.join(path, new_file), img, [cv2.IMWRITE_PNG_COMPRESSION, 0])
+	else:
+		new_file = os.path.splitext(filename)[0] + ".jpg"
+		cv2.imwrite(os.path.join(path, new_file), img, [cv2.IMWRITE_JPEG_QUALITY, 90])
 def processImage(img,filename):
 
 	if args.process_type == "exclude":	
