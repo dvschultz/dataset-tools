@@ -401,7 +401,7 @@ def makePix2Pix(img,filename,direction="BtoA",value=[0,0,0]):
 		os.makedirs(make_path)
 
 	
-	if(direction is "BtoA"):
+	if(direction=="BtoA"):
 		img_p2p = cv2.copyMakeBorder(img_p2p, 0, 0, w, 0, bType, None, value)
 		# new_file = str(count) + ".jpg"
 		new_file = os.path.splitext(filename)[0] + ".png"
