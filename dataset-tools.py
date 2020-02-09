@@ -230,10 +230,13 @@ def makeSquare(img,filename,scale):
 	elif (args.border_type == 'reflect'):
 		bType = cv2.BORDER_REFLECT
 	img_sq = img.copy()
-	img_sq = image_resize(img_sq, max = scale)
+	(h, w) = img_sq.shape[:2]
+	if((h < scale) and (w < scale)):
+		if(args.verbose): print('skip resize')
+	else:
+		img_sq = image_resize(img_sq, max = scale)
 
 	bColor = [int(item) for item in args.border_color.split(',')]
-	print(bColor)
 
 	(h, w) = img_sq.shape[:2]
 	if(h > w):
@@ -250,6 +253,12 @@ def makeSquare(img,filename,scale):
 			img_sq = cv2.copyMakeBorder(img_sq, int(diff/2), int(diff/2), 0, 0, bType,value=bColor)
 		else:
 			img_sq = cv2.copyMakeBorder(img_sq, int(diff/2), int(diff/2)+1, 0, 0, bType,value=bColor)
+	else:
+		diff = scale-h
+		if(diff%2 == 0):
+			img_sq = cv2.copyMakeBorder(img_sq, int(diff/2), int(diff/2), int(diff/2), int(diff/2), bType,value=bColor)
+		else:
+			img_sq = cv2.copyMakeBorder(img_sq, int(diff/2), int(diff/2)+1, int(diff/2), int(diff/2)+1, bType,value=bColor)
 
 	if(args.file_extension == "png"):
 		new_file = os.path.splitext(filename)[0] + "-sq.png"
