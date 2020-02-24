@@ -25,8 +25,10 @@ python dataset-tools.py --input_folder path/to/input/ --output_folder path/to/ou
 * `--rotate`: Adds 90 degree rotation augmentation.
 * `--border_type`: Border style to use when using the `square` process type *Options*: `stretch`,`reflect`,`solid` (`solid` requires `--border-color`) *Default*: `stretch`
 * `--border_color`: border color to use with the `solid` border type; use BGR values from 0 to 255 *Example*: `255,0,0` is blue
+* `--file_extension`: file format to output *Options*: `jpg`,`png` *Default*: `png`
 
 ## sort.py
+* `--file_extension`: file format to output *Options*: `jpg`,`png` *Default*: `png`
 * `--verbose`: Print progress to console.
 * `--input_folder`: Directory path to the inputs folder. *Default*: `./input/`
 * `--output_folder`: Directory path to the outputs folder. *Default*: `./output/`
@@ -34,6 +36,16 @@ python dataset-tools.py --input_folder path/to/input/ --output_folder path/to/ou
 * `--max_size`: Maximum width or height of the output images. *Default*: `2048`
 * `--min_size`: Minimum width or height of the output images. *Default*: `1024`
 * `--min_ratio`: Ratio of image (height/width). *Default*: `1.0`
+
+## dedupe.py
+Remove duplicate images from your dataset
+* `--absolute`: Use absolute matching. *Default*
+* `--avg_match`: average pixel difference between images (use with `--relative`) *Default*: `1.0`
+* `--file_extension`: file format to output *Options*: `jpg`,`png` *Default*: `png`
+* `--input_folder`: Directory path to the inputs folder. *Default*: `./input/`
+* `--output_folder`: Directory path to the outputs folder. *Default*: `./output/`
+* `--relative`: Use relative matching.
+* `--verbose`: Print progress to console.
 
 ## rotate.py
 
