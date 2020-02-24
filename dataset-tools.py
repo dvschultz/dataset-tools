@@ -202,6 +202,33 @@ def makeResize(img,filename,scale):
 	if (args.mirror): flipImage(img_copy,new_file,remakePath)
 	if (args.rotate): rotateImage(img_copy,new_file,remakePath)
 
+# def makeResizePad(img,filename,scale):
+# 	remakePath = args.output_folder + str(scale)+"/"
+# 	if not os.path.exists(remakePath):
+# 		os.makedirs(remakePath)
+
+# 	img_copy = img.copy()
+
+# 	bType = cv2.BORDER_REPLICATE
+# 	if(args.border_type == 'solid'):
+# 		bType = cv2.BORDER_CONSTANT
+# 	elif (args.border_type == 'reflect'):
+# 		bType = cv2.BORDER_REFLECT
+
+# 	(h, w) = img_copy.shape[:2]
+
+# 	if(h < scale):
+
+# 	if(args.file_extension == "png"):
+# 		new_file = os.path.splitext(filename)[0] + ".png"
+# 		cv2.imwrite(os.path.join(remakePath, new_file), img_copy, [cv2.IMWRITE_PNG_COMPRESSION, 0])
+# 	elif(args.file_extension == "jpg"):
+# 		new_file = os.path.splitext(filename)[0] + ".jpg"
+# 		cv2.imwrite(os.path.join(remakePath, new_file), img_copy, [cv2.IMWRITE_JPEG_QUALITY, 90])
+
+# 	if (args.mirror): flipImage(img_copy,new_file,remakePath)
+# 	if (args.rotate): rotateImage(img_copy,new_file,remakePath)
+
 def makeScale(img,filename,scale):
 
 	remakePath = args.output_folder + "scale_"+str(scale)+"/"
@@ -439,6 +466,8 @@ def processImage(img,filename):
 
 	if args.process_type == "resize":	
 		makeResize(img,filename,args.max_size)
+	if args.process_type == "resize_pad":	
+		makeResizePad(img,filename,args.max_size)
 	if args.process_type == "square":
 		makeSquare(img,filename,args.max_size)
 	if args.process_type == "crop_to_square":

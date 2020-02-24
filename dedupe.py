@@ -24,24 +24,34 @@ def parse_args():
 
 	parser.add_argument('--process_type', type=str,
 		default='exclude',
-		help='Process to use. ["exclude","sort"] (default: %(default)s)')
-
+		help='Process to use. ["exclude"] (default: %(default)s)')
 
 	parser.add_argument('--file_extension', type=str,
 		default='png',
 		help='file type ["png","jpg"] (default: %(default)s)')
 
+	parser.add_argument('--avg_match', type=float,
+		default=1.0,
+		help='average pixel difference between images (use with --relative) (default: %(default)s)')
 
+	feature_parser = parser.add_mutually_exclusive_group(required=False)
+	feature_parser.add_argument('--absolute', dest='absolute', action='store_true')
+	feature_parser.add_argument('--relative', dest='absolute', action='store_false')
+	parser.set_defaults(absolute=True)
 
 	args = parser.parse_args()
 	return args
 
 def compare(img1,img2):
-	if(img1.shape != img2.shape):
-		return False
-	else:
-		difference = cv2.subtract(img1, img2)    
+	difference = cv2.absdiff(img1, img2)
+	if(args.absolute):	
 		return not np.any(difference)
+	else:
+		return np.divide(np.sum(difference),img1.shape[0]*img1.shape[1]) <= 1.0
+
+		#way too greedy
+		#return np.allclose(img1,img2,2,2)
+
 
 def exclude(imgs,filenames):
 	path = args.output_folder + "exclude/"
@@ -49,20 +59,28 @@ def exclude(imgs,filenames):
 		os.makedirs(path)
 
 	i = 0
-	while i < len(imgs):
-		img = imgs[i]
-		filename = filenames[i]
+	print("processing...")
+	print("total images: " + str(len(imgs)))
 
-		for i2 in range(i+1,len(imgs)):
-			try: 
-				img2 = imgs[i2]
+	while i < len(imgs):
+		img = imgs[i][0]
+		filename = imgs[i][1]
+
+		print("matching to: " + filename)
+		print( str(i) + "/" + str(len(imgs)) )
+
+		i2 = i+1
+		while i2 < len(imgs):
+			img2 = imgs[i2][0]
+			filename2 = imgs[i2][1]
+
+			if((img is not None) and (img2 is not None)):
 				if compare(img,img2):
-					print (filenames[i] + " matches " + filenames[i2])
-					del imgs[i2]
-					del filenames[i2]
-			except IndexError:
-				print("") 
-			
+					print (filename + " matches " + filename2)
+					imgs.pop(i2)
+
+			i2 += 1
+
 		if(args.file_extension == "png"):
 			new_file = os.path.splitext(filename)[0] + ".png"
 			cv2.imwrite(os.path.join(path, new_file), img, [cv2.IMWRITE_PNG_COMPRESSION, 0])
@@ -127,17 +145,19 @@ def main():
 	imgs = []
 	filenames = []
 	for root, subdirs, files in os.walk(args.input_folder):
-		print('--\nroot = ' + root)
+		print("loading images...")
+		if(args.verbose): print('--\nroot = ' + root)
 
 		for subdir in subdirs:
-			print('\t- subdirectory ' + subdir)
+			if(args.verbose): print('\t- subdirectory ' + subdir)
 
 		for filename in files:
-			file_path = os.path.join(root, filename)
-			print('\t- file %s (full path: %s)' % (filename, file_path))
-			
-			imgs.append(cv2.imread(file_path))
-			filenames.append(filename);
+			if not filename.startswith('.'):
+				file_path = os.path.join(root, filename)
+				if(args.verbose): print('\t- file %s (full path: %s)' % (filename, file_path))
+				
+				imgs.append([cv2.imread(file_path),filename])
+				# print(imgs)
 
 	processImage(imgs,filenames)
 
