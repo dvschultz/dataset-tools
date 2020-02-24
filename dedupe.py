@@ -47,7 +47,7 @@ def compare(img1,img2):
 	if(args.absolute):	
 		return not np.any(difference)
 	else:
-		return np.divide(np.sum(difference),img1.shape[0]*img1.shape[1]) <= 1.0
+		return np.divide(np.sum(difference),img1.shape[0]*img1.shape[1]) <= args.avg_match
 
 		#way too greedy
 		#return np.allclose(img1,img2,2,2)
