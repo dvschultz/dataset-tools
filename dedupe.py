@@ -4,6 +4,7 @@ import os
 import imutils
 import cv2
 import random
+import operator
 
 # print(cv2.__version__)
 
@@ -43,6 +44,7 @@ def parse_args():
 	return args
 
 def compare(img1,img2):
+	test = False
 	difference = cv2.absdiff(img1, img2)
 	if(args.absolute):	
 		return not np.any(difference)
@@ -59,6 +61,7 @@ def exclude(imgs,filenames):
 		os.makedirs(path)
 
 	i = 0
+	print("avg_match" + str(args.avg_match))
 	print("processing...")
 	print("total images: " + str(len(imgs)))
 
@@ -71,15 +74,18 @@ def exclude(imgs,filenames):
 
 		i2 = i+1
 		while i2 < len(imgs):
+			popped = False
 			img2 = imgs[i2][0]
 			filename2 = imgs[i2][1]
 
-			if((img is not None) and (img2 is not None)):
-				if compare(img,img2):
-					print (filename + " matches " + filename2)
-					imgs.pop(i2)
+			# print ('comparing '+filename + " to " + filename2)
+			if compare(img,img2):
+				print (filename + " matches " + filename2)
+				popped = True
+				imgs.pop(i2)
 
-			i2 += 1
+			if not popped:
+				i2 += 1
 
 		if(args.file_extension == "png"):
 			new_file = os.path.splitext(filename)[0] + ".png"
@@ -144,8 +150,8 @@ def main():
 
 	imgs = []
 	filenames = []
+	print("loading images...")
 	for root, subdirs, files in os.walk(args.input_folder):
-		print("loading images...")
 		if(args.verbose): print('--\nroot = ' + root)
 
 		for subdir in subdirs:
@@ -159,6 +165,10 @@ def main():
 				imgs.append([cv2.imread(file_path),filename])
 				# print(imgs)
 
+	print("sorting images...")
+	imgs.sort(key=operator.itemgetter(1))	
+	# for n in range(4):
+	# 	print(imgs[n][1])		
 	processImage(imgs,filenames)
 
 

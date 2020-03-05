@@ -76,6 +76,11 @@ def parse_args():
 		default='png',
 		help='Border style to use when using the square process type ["png","jpg"] (default: %(default)s)')
 
+	feature_parser = parser.add_mutually_exclusive_group(required=False)
+	feature_parser.add_argument('--keep_name', dest='name', action='store_true')
+	feature_parser.add_argument('--numbered', dest='name', action='store_false')
+	parser.set_defaults(absolute=True)
+
 	args = parser.parse_args()
 	return args
 
@@ -507,8 +512,11 @@ def main():
 			img = cv2.imread(file_path)
 
 			if hasattr(img, 'copy'):
-				processImage(img,filename)
-				count = count + int(2)
+				if args.name:
+					processImage(img,filename)
+				else:
+					processImage(img,str(count))
+				count = count + int(1)
 
 
 if __name__ == "__main__":
