@@ -43,6 +43,9 @@ python dataset-tools.py --input_folder path/to/input/ --output_folder path/to/ou
 
 ## dedupe.py
 Remove duplicate images from your dataset
+Basic usage (absolute): `python dedupe.py --input_folder path/to/input/ --output_folder path/to/output/`
+Basic usage (relative): `python dedupe.py --input_folder path/to/input/ --output_folder path/to/output/ --relative`
+
 * `--absolute`: Use absolute matching. *Default*
 * `--avg_match`: average pixel difference between images (use with `--relative`) *Default*: `1.0`
 * `--file_extension`: file format to output *Options*: `jpg`,`png` *Default*: `png`
