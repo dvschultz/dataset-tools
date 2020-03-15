@@ -40,9 +40,11 @@ python dataset-tools.py --input_folder path/to/input/ --output_folder path/to/ou
 * `--max_size`: Maximum width or height of the output images. *Default*: `2048`
 * `--min_size`: Minimum width or height of the output images. *Default*: `1024`
 * `--min_ratio`: Ratio of image (height/width). *Default*: `1.0`
+* `--exact`: Match to exact specs. Use `--min_size` for shorter dimension, `--max_size` for longer dimension
 
 ## dedupe.py
 Remove duplicate images from your dataset
+
 * `--absolute`: Use absolute matching. *Default*
 * `--avg_match`: average pixel difference between images (use with `--relative`) *Default*: `1.0`
 * `--file_extension`: file format to output *Options*: `jpg`,`png` *Default*: `png`
@@ -50,6 +52,12 @@ Remove duplicate images from your dataset
 * `--output_folder`: Directory path to the outputs folder. *Default*: `./output/`
 * `--relative`: Use relative matching.
 * `--verbose`: Print progress to console.
+
+### Basic usage (absolute)
+`python dedupe.py --input_folder path/to/input/ --output_folder path/to/output/`
+
+### Basic usage (relative)
+`python dedupe.py --input_folder path/to/input/ --output_folder path/to/output/ --relative`
 
 ## rotate.py
 
