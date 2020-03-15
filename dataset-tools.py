@@ -24,7 +24,15 @@ def parse_args():
 
 	parser.add_argument('--process_type', type=str,
 		default='resize',
-		help='Process to use. ["resize","square","crop_to_square","canny","pix2pix","crop_square_patch","scale","many_squares","crop"] (default: %(default)s)')
+		help='Process to use. ["resize","square","crop_to_square","canny","canny-pix2pix","crop_square_patch","scale","many_squares","crop"] (default: %(default)s)')
+
+	parser.add_argument('--blur_type', type=str,
+		default='none',
+		help='Blur process to use. Use with --process_type canny. ["none","gaussian","median"] (default: %(default)s)')
+
+	parser.add_argument('--blur_amount', type=int, 
+		default=1,
+		help='Amount of blur to apply (use odd numbers). Use with --blur_type.  (default: %(default)s)')
 
 	parser.add_argument('--max_size', type=int, 
 		default=512,
@@ -79,7 +87,7 @@ def parse_args():
 	feature_parser = parser.add_mutually_exclusive_group(required=False)
 	feature_parser.add_argument('--keep_name', dest='name', action='store_true')
 	feature_parser.add_argument('--numbered', dest='name', action='store_false')
-	parser.set_defaults(absolute=True)
+	parser.set_defaults(name=True)
 
 	args = parser.parse_args()
 	return args
@@ -187,6 +195,17 @@ def crop_square_patch(img, imgSize):
 	cropped = img[rH:rH+imgSize,rW:rW+imgSize]
 
 	return cropped
+
+def processCanny(img):
+	gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+	
+	if(args.blur_type=='gaussian'):
+		gray = cv2.GaussianBlur(gray, (args.blur_amount, args.blur_amount), 0)
+	elif(args.blur_type=='median'):
+		gray = cv2.medianBlur(gray,args.blur_amount)
+	gray = cv2.Canny(gray,100,300)
+
+	return gray
 
 def makeResize(img,filename,scale):
 
@@ -305,22 +324,22 @@ def makeSquare(img,filename,scale):
 	
 	
 
-def makeCanny(img,filename,scale,medianBlurScale=3):
+def makeCanny(img,filename,scale):
 	make_path = args.output_folder + "canny-"+str(scale)+"/"
 	if not os.path.exists(make_path):
 		os.makedirs(make_path)
 
 	img_copy = img.copy()
 	img_copy = image_resize(img_copy, max = scale)
-	gray = cv2.cvtColor(img_copy, cv2.COLOR_BGR2GRAY)
-	# gray = cv2.GaussianBlur(gray, (1, 1), 0)
-	# gray = cv2.medianBlur(gray,medianBlurScale)
-	gray = cv2.Canny(gray,100,300)
+	gray = processCanny(img_copy)
 
 	# save out
-	new_file = os.path.splitext(filename)[0] + ".png"
-	# new_file = str(count) + ".jpg"
-	cv2.imwrite(os.path.join(make_path, new_file), gray, [cv2.IMWRITE_PNG_COMPRESSION, 0])
+	if(args.file_extension == "png"):
+		new_file = os.path.splitext(filename)[0] + ".png"
+		cv2.imwrite(os.path.join(make_path, new_file), gray, [cv2.IMWRITE_PNG_COMPRESSION, 0])
+	elif(args.file_extension == "jpg"):
+		new_file = os.path.splitext(filename)[0] + ".jpg"
+		cv2.imwrite(os.path.join(make_path, new_file), gray, [cv2.IMWRITE_JPEG_QUALITY, 90])
 
 	if (args.mirror): flipImage(img_copy,new_file,make_path)
 	if (args.rotate): rotateImage(img_copy,new_file,make_path)
@@ -441,12 +460,18 @@ def makePix2Pix(img,filename,direction="BtoA",value=[0,0,0]):
 	if not os.path.exists(make_path):
 		os.makedirs(make_path)
 
+	canny = cv2.cvtColor(processCanny(img_p2p),cv2.COLOR_GRAY2RGB)
 	
 	if(direction=="BtoA"):
 		img_p2p = cv2.copyMakeBorder(img_p2p, 0, 0, w, 0, bType, None, value)
-		# new_file = str(count) + ".jpg"
+		img_p2p[0:h,0:w] = canny
+	
+	if(args.file_extension == "png"):
 		new_file = os.path.splitext(filename)[0] + ".png"
 		cv2.imwrite(os.path.join(make_path, new_file), img_p2p, [cv2.IMWRITE_PNG_COMPRESSION, 0])
+	elif(args.file_extension == "jpg"):
+		new_file = os.path.splitext(filename)[0] + ".jpg"
+		cv2.imwrite(os.path.join(make_path, new_file), img_p2p, [cv2.IMWRITE_JPEG_QUALITY, 90])
 
 def flipImage(img,filename,path):
 	flip_img = cv2.flip(img, 1)
@@ -479,7 +504,7 @@ def processImage(img,filename):
 		makeSquareCrop(img,filename,args.max_size)
 	if args.process_type == "canny":
 		makeCanny(img,filename,args.max_size)
-	if args.process_type == "pix2pix":
+	if args.process_type == "canny-pix2pix":
 		makePix2Pix(img,filename)
 	if args.process_type == "crop_square_patch":
 		makeSquareCropPatch(img,filename,args.max_size)
