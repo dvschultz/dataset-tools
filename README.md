@@ -40,6 +40,7 @@ python dataset-tools.py --input_folder path/to/input/ --output_folder path/to/ou
 * `--max_size`: Maximum width or height of the output images. *Default*: `2048`
 * `--min_size`: Minimum width or height of the output images. *Default*: `1024`
 * `--min_ratio`: Ratio of image (height/width). *Default*: `1.0`
+* `--exact`: Match to exact specs. Use `--min_size` for shorter dimension, `--max_size` for longer dimension
 
 ## dedupe.py
 Remove duplicate images from your dataset
