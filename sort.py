@@ -60,10 +60,13 @@ def exclude(img,filename):
 	(h, w) = img.shape[:2]
 
 	if((h >= args.min_size) and (h <= args.max_size) and (w >= args.min_size) and (w <= args.max_size)):
-		new_file = os.path.splitext(filename)[0] + ".png"
-		# new_file = str(count) + ".jpg"
-		cv2.imwrite(os.path.join(make_path, new_file), img, [cv2.IMWRITE_PNG_COMPRESSION, 0])
 
+		if(args.file_extension == "png"):
+			new_file = os.path.splitext(filename)[0] + ".png"
+			cv2.imwrite(os.path.join(make_path, new_file), img, [cv2.IMWRITE_PNG_COMPRESSION, 0])
+		else:
+			new_file = os.path.splitext(filename)[0] + ".jpg"
+			cv2.imwrite(os.path.join(make_path, new_file), img, [cv2.IMWRITE_JPEG_QUALITY, 90])
 
 def sort(img,filename):
 	make_path1 = args.output_folder + "yes/"
@@ -111,16 +114,17 @@ def main():
 	count = int(0)
 	inter = cv2.INTER_CUBIC
 	os.environ['OPENCV_IO_ENABLE_JASPER']= "true"
+	print('processing images...')
 
 	for root, subdirs, files in os.walk(args.input_folder):
-		print('--\nroot = ' + root)
+		if(args.verbose): print('--\nroot = ' + root)
 
 		for subdir in subdirs:
-			print('\t- subdirectory ' + subdir)
+			if(args.verbose): print('\t- subdirectory ' + subdir)
 
 		for filename in files:
 			file_path = os.path.join(root, filename)
-			print('\t- file %s (full path: %s)' % (filename, file_path))
+			if(args.verbose): print('\t- file %s (full path: %s)' % (filename, file_path))
 			
 			img = cv2.imread(file_path)
 
