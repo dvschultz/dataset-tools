@@ -1,5 +1,6 @@
 import argparse
 import numpy as np
+import scipy.ndimage as pyimg
 import os
 import imutils
 import cv2
@@ -24,7 +25,7 @@ def parse_args():
 
 	parser.add_argument('--process_type', type=str,
 		default='resize',
-		help='Process to use. ["resize","square","crop_to_square","canny","canny-pix2pix","crop_square_patch","scale","many_squares","crop"] (default: %(default)s)')
+		help='Process to use. ["resize","square","crop_to_square","canny","canny-pix2pix","crop_square_patch","scale","many_squares","crop","distance"] (default: %(default)s)')
 
 	parser.add_argument('--blur_type', type=str,
 		default='none',
@@ -49,6 +50,14 @@ def parse_args():
 	parser.add_argument('--shift_y', type=int, 
 		default=0,
 		help='y coordinate shift (for use with --process_type crop). (default: %(default)s)')
+
+	parser.add_argument('--v_align', type=str, 
+		default='center',
+		help='-vertical alignment options: top, bottom, center (for use with --process_type crop_to_square). (default: %(default)s)')
+
+	parser.add_argument('--h_align', type=str, 
+		default='center',
+		help='-vertical alignment options: left, right, center (for use with --process_type crop_to_square). (default: %(default)s)')
 
 	parser.add_argument('--shift_x', type=int, 
 		default=0,
@@ -174,18 +183,26 @@ def arbitrary_crop(img, h_crop,w_crop):
 
 def crop_to_square(img):
 	(h, w) = img.shape[:2]
-	if w > h:
-		# crop width
-		diff = int((w-h)/2)
-		cropped = img[0:h, diff:diff+h]
-		return cropped
+	
+	if w > h:	
+		if (args.h_align=='left'):
+			print('here first')
+			cropped = img[:h,:h]
+		elif (args.h_align=='right'):
+			cropped = img[0:h, w-h:w]
+		else:
+			diff = int((w-h)/2)
+			cropped = img[0:h, diff:diff+h]
 	elif h > w:
-		# crop height
-		diff = int((h-w)/2)
-		cropped = img[diff:diff+w, 0:w]
-		return cropped
-	else:
-		return img
+		if (args.v_align=='top'):
+			cropped = img[:w, :w]
+		elif (args.v_align=='bottom'):
+			cropped = img[h-w:h, 0:w]
+		else:
+			diff = int((h-w)/2)
+			cropped = img[diff:diff+w, 0:w]
+		
+	return cropped
 
 def crop_square_patch(img, imgSize):
 	(h, w) = img.shape[:2]
@@ -225,6 +242,32 @@ def makeResize(img,filename,scale):
 
 	if (args.mirror): flipImage(img_copy,new_file,remakePath)
 	if (args.rotate): rotateImage(img_copy,new_file,remakePath)
+
+def makeDistance(img,filename,scale):
+	makePath = args.output_folder + "distance-"+ str(args.max_size)+"/"
+	if not os.path.exists(makePath):
+		os.makedirs(makePath)
+
+	img_copy = img.copy()
+	img_copy = image_resize(img_copy, max = scale)
+
+	BW = img_copy[:,:,0] > 127
+	G_channel = pyimg.distance_transform_edt(BW)
+	G_channel[G_channel>32]=32
+	B_channel = pyimg.distance_transform_edt(1-BW)
+	B_channel[B_channel>200]=200
+	img_copy[:,:,1] = G_channel.astype('uint8')
+	img_copy[:,:,0] = B_channel.astype('uint8')
+
+	if(args.file_extension == "png"):
+		new_file = os.path.splitext(filename)[0] + ".png"
+		cv2.imwrite(os.path.join(makePath, new_file), img_copy, [cv2.IMWRITE_PNG_COMPRESSION, 0])
+	elif(args.file_extension == "jpg"):
+		new_file = os.path.splitext(filename)[0] + ".jpg"
+		cv2.imwrite(os.path.join(makePath, new_file), img_copy, [cv2.IMWRITE_JPEG_QUALITY, 90])
+
+	if (args.mirror): flipImage(img_copy,new_file,makePath)
+	if (args.rotate): rotateImage(img_copy,new_file,makePath)
 
 # def makeResizePad(img,filename,scale):
 # 	remakePath = args.output_folder + str(scale)+"/"
@@ -312,7 +355,7 @@ def makeSquare(img,filename,scale):
 			img_sq = cv2.copyMakeBorder(img_sq, int(diff/2), int(diff/2)+1, int(diff/2), int(diff/2)+1, bType,value=bColor)
 
 	if(args.file_extension == "png"):
-		new_file = os.path.splitext(filename)[0] + "-sq.png"
+		new_file = os.path.splitext(filename)[0] + ".png"
 		cv2.imwrite(os.path.join(sqPath, new_file), img_sq, [cv2.IMWRITE_PNG_COMPRESSION, 0])
 	elif(args.file_extension == "jpg"):
 		new_file = os.path.splitext(filename)[0] + ".jpg"
@@ -451,8 +494,9 @@ def makeSquareCropPatch(img,filename,scale):
 	if (args.mirror): flipImage(img_copy,new_file,make_path)
 	if (args.rotate): rotateImage(img_copy,new_file,make_path)
 
-def makePix2Pix(img,filename,direction="BtoA",value=[0,0,0]):
+def makePix2Pix(img,filename,scale,direction="BtoA",value=[0,0,0]):
 	img_p2p = img.copy()
+	img_p2p = image_resize(img_p2p, max = scale)
 	(h, w) = img_p2p.shape[:2]
 	bType = cv2.BORDER_CONSTANT
 	
@@ -481,16 +525,29 @@ def flipImage(img,filename,path):
 def rotateImage(img,filename,path):
 	r = img.copy() 
 	r = imutils.rotate_bound(r, 90)
-	r_file = os.path.splitext(filename)[0] + "-rot90.png"
-	cv2.imwrite(os.path.join(path, r_file), r, [cv2.IMWRITE_PNG_COMPRESSION, 0])
+
+	if(args.file_extension == "png"):
+		r_file = os.path.splitext(filename)[0] + "-rot90.png"
+		cv2.imwrite(os.path.join(path, r_file), r, [cv2.IMWRITE_PNG_COMPRESSION, 0])
+	elif(args.file_extension == "jpg"):
+		r_file = os.path.splitext(filename)[0] + "-rot90.jpg"
+		cv2.imwrite(os.path.join(path, r_file), r, [cv2.IMWRITE_JPEG_QUALITY, 90])
 
 	r = imutils.rotate_bound(r, 90)
-	r_file = os.path.splitext(filename)[0] + "-rot180.png"
-	cv2.imwrite(os.path.join(path, r_file), r, [cv2.IMWRITE_PNG_COMPRESSION, 0])
+	if(args.file_extension == "png"):
+		r_file = os.path.splitext(filename)[0] + "-rot180.png"
+		cv2.imwrite(os.path.join(path, r_file), r, [cv2.IMWRITE_PNG_COMPRESSION, 0])
+	elif(args.file_extension == "jpg"):
+		r_file = os.path.splitext(filename)[0] + "-rot180.jpg"
+		cv2.imwrite(os.path.join(path, r_file), r, [cv2.IMWRITE_JPEG_QUALITY, 90])
 
 	r = imutils.rotate_bound(r, 90)
-	r_file = os.path.splitext(filename)[0] + "-rot270.png"
-	cv2.imwrite(os.path.join(path, r_file), r, [cv2.IMWRITE_PNG_COMPRESSION, 0])
+	if(args.file_extension == "png"):
+		r_file = os.path.splitext(filename)[0] + "-rot270.png"
+		cv2.imwrite(os.path.join(path, r_file), r, [cv2.IMWRITE_PNG_COMPRESSION, 0])
+	elif(args.file_extension == "jpg"):
+		r_file = os.path.splitext(filename)[0] + "-rot270.jpg"
+		cv2.imwrite(os.path.join(path, r_file), r, [cv2.IMWRITE_JPEG_QUALITY, 90])
 
 def processImage(img,filename):
 
@@ -505,7 +562,7 @@ def processImage(img,filename):
 	if args.process_type == "canny":
 		makeCanny(img,filename,args.max_size)
 	if args.process_type == "canny-pix2pix":
-		makePix2Pix(img,filename)
+		makePix2Pix(img,filename,args.max_size)
 	if args.process_type == "crop_square_patch":
 		makeSquareCropPatch(img,filename,args.max_size)
 	if args.process_type == "scale":
@@ -514,6 +571,8 @@ def processImage(img,filename):
 		makeManySquares(img,filename,args.max_size)
 	if args.process_type == "crop":
 		makeCrop(img,filename)
+	if args.process_type == "distance":
+		makeDistance(img,filename,args.max_size)
 
 def main():
 	global args
@@ -537,6 +596,7 @@ def main():
 			img = cv2.imread(file_path)
 
 			if hasattr(img, 'copy'):
+				print('processing image: ' + filename)
 				if args.name:
 					processImage(img,filename)
 				else:
