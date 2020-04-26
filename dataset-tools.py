@@ -184,6 +184,7 @@ def arbitrary_crop(img, h_crop,w_crop):
 def crop_to_square(img):
 	(h, w) = img.shape[:2]
 	
+	cropped = img.copy()
 	if w > h:	
 		if (args.h_align=='left'):
 			print('here first')
