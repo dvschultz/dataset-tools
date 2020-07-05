@@ -22,13 +22,14 @@ python dataset-tools.py --input_folder path/to/input/ --output_folder path/to/ou
 * `--blur_type`: Blur process to use. Use with `--process_type canny`. *Options*: `none`, `gaussian`, `median`. *Default*: `none`
 * `--blur_amount`: Amount of blur to apply (use odd integers only). Use with `--blur_type`. *Default*: `1`
 * `--max_size`: Maximum width or height of the output images. *Default*: `512`
+* `--force_max`: forces the resize to the max size (by default `--max_size` only scales down)
 * `--direction`: Paired Direction. For use with pix2pix process. *Options*: `AtoB`,`BtoA`.  *Default*: `AtoB`
 * `--mirror`: Adds mirror augmentation.
 * `--rotate`: Adds 90 degree rotation augmentation.
 * `--border_type`: Border style to use when using the `square` process type *Options*: `stretch`,`reflect`,`solid` (`solid` requires `--border-color`) *Default*: `stretch`
 * `--border_color`: border color to use with the `solid` border type; use BGR values from 0 to 255 *Example*: `255,0,0` is blue
-* `--height`: height of crop in pixels; use with `--process_type crop`
-* `--width`: width of crop in pixels; use with `--process_type crop`
+* `--height`: height of crop in pixels; use with `--process_type crop` or `--process_type resize` (when used with `resize` it will distort the aspect ratio)
+* `--width`: width of crop in pixels; use with `--process_type crop` or `--process_type resize` (when used with `resize` it will distort the aspect ratio)
 * `--shift_y`: y (Top to bottom) amount to shift in pixels; negative values will move it up, positive will move it down; use with `--process_type crop`
 * `--shift_x`: x (Left to right) amount to shift in pixels; negative values will move it left, positive will move it right; use with `--process_type crop`
 * `--file_extension`: file format to output *Options*: `jpg`,`png` *Default*: `png`
