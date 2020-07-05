@@ -18,7 +18,7 @@ python dataset-tools.py --input_folder path/to/input/ --output_folder path/to/ou
 * `--verbose`: Print progress to console.
 * `--input_folder`: Directory path to the inputs folder. *Default*: `./input/`
 * `--output_folder`: Directory path to the outputs folder. *Default*: `./output/`
-* `--process_type`: Process to use. *Options*: `resize`,`square`,`crop`,`crop_to_square`,`canny`,`canny-pix2pix`,`scale`,`crop_to_square_patch`,`many_squares`  *Default*: `resize`
+* `--process_type`: Process to use. *Options*: `resize`,`square`,`crop`,`crop_to_square`,`canny`,`canny-pix2pix`,`scale`,`crop_square_patch`,`many_squares`  *Default*: `resize`
 * `--blur_type`: Blur process to use. Use with `--process_type canny`. *Options*: `none`, `gaussian`, `median`. *Default*: `none`
 * `--blur_amount`: Amount of blur to apply (use odd integers only). Use with `--blur_type`. *Default*: `1`
 * `--max_size`: Maximum width or height of the output images. *Default*: `512`
