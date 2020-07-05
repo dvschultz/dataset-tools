@@ -15,6 +15,9 @@ def parse_args():
 	parser.add_argument('--verbose', action='store_true',
 		help='Print progress to console.')
 
+	parser.add_argument('--force_max', action='store_true',
+		help='Force max size')
+
 	parser.add_argument('--input_folder', type=str,
 		default='./input/',
 		help='Directory path to the inputs folder. (default: %(default)s)')
@@ -40,11 +43,11 @@ def parse_args():
 		help='Maximum width or height of the output images. (default: %(default)s)')
 
 	parser.add_argument('--height', type=int, 
-		default=512,
+		default=None,
 		help='Maximum height of the output image (for use with --process_type crop). (default: %(default)s)')
 
 	parser.add_argument('--width', type=int, 
-		default=512,
+		default=None,
 		help='Maximum width of output image (for use with --process_type crop). (default: %(default)s)')
 
 	parser.add_argument('--shift_y', type=int, 
@@ -226,13 +229,15 @@ def processCanny(img):
 	return gray
 
 def makeResize(img,filename,scale):
-
 	remakePath = args.output_folder + str(scale)+"/"
 	if not os.path.exists(remakePath):
 		os.makedirs(remakePath)
 
 	img_copy = img.copy()
-	img_copy = image_resize(img_copy, max = scale)
+	if(args.height!=None and args.width!=None):
+		img_copy = cv2.resize(img_copy, (args.width,args.height), interpolation = inter)
+	else:
+		img_copy = image_resize(img_copy, max = scale)
 
 	if(args.file_extension == "png"):
 		new_file = os.path.splitext(filename)[0] + ".png"
@@ -334,7 +339,13 @@ def makeSquare(img,filename,scale):
 	bColor = [int(item) for item in args.border_color.split(',')]
 
 	(h, w) = img_sq.shape[:2]
-	if(h > w):
+	if(args.force_max):
+		diff_x = scale - w
+		diff_y = scale - h
+
+		if(diff_x%2 == 0 and diff_y%2 == 0 ):
+			img_sq = cv2.copyMakeBorder(img_sq, int(diff_y/2), int(diff_y/2), int(diff_x/2), int(diff_x/2), bType,value=bColor)
+	elif(h > w):
 		# pad left/right
 		diff = h-w
 		if(diff%2 == 0):
