@@ -68,6 +68,7 @@ def exclude(imgs,filenames):
 	while i < len(imgs):
 		img = imgs[i][0]
 		filename = imgs[i][1]
+		(h1, w1) = img.shape[:2]
 
 		print("matching to: " + filename)
 		print( str(i) + "/" + str(len(imgs)) )
@@ -77,12 +78,14 @@ def exclude(imgs,filenames):
 			popped = False
 			img2 = imgs[i2][0]
 			filename2 = imgs[i2][1]
+			(h2, w2) = img2.shape[:2]
 
 			# print ('comparing '+filename + " to " + filename2)
-			if compare(img,img2):
-				print (filename + " matches " + filename2)
-				popped = True
-				imgs.pop(i2)
+			if (h1 == h2) and (w1 == w2):
+				if compare(img,img2):
+					print (filename + " matches " + filename2)
+					popped = True
+					imgs.pop(i2)
 
 			if not popped:
 				i2 += 1
