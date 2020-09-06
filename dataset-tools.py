@@ -148,6 +148,14 @@ def image_resize(image, width = None, height = None, max = None):
     # return the resized image
     return resized
 
+def saveImage(img,path,filename):
+	if(args.file_extension == "png"):
+		new_file = os.path.splitext(filename)[0] + ".png"
+		cv2.imwrite(os.path.join(path, new_file), img, [cv2.IMWRITE_PNG_COMPRESSION, 0])
+	elif(args.file_extension == "jpg"):
+		new_file = os.path.splitext(filename)[0] + ".jpg"
+		cv2.imwrite(os.path.join(path, new_file), img, [cv2.IMWRITE_JPEG_QUALITY, 90])
+
 def image_scale(image, scalar = 1.0):
 	(h, w) = image.shape[:2]
 	dim = (int(w*scalar),int(h*scalar))
@@ -239,13 +247,7 @@ def makeResize(img,filename,scale):
 	else:
 		img_copy = image_resize(img_copy, max = scale)
 
-	if(args.file_extension == "png"):
-		new_file = os.path.splitext(filename)[0] + ".png"
-		cv2.imwrite(os.path.join(remakePath, new_file), img_copy, [cv2.IMWRITE_PNG_COMPRESSION, 0])
-	elif(args.file_extension == "jpg"):
-		new_file = os.path.splitext(filename)[0] + ".jpg"
-		cv2.imwrite(os.path.join(remakePath, new_file), img_copy, [cv2.IMWRITE_JPEG_QUALITY, 90])
-
+	saveImage(img_copy,remakePath,filename)
 	if (args.mirror): flipImage(img_copy,new_file,remakePath)
 	if (args.rotate): rotateImage(img_copy,new_file,remakePath)
 
@@ -448,22 +450,20 @@ def makeManySquares(img,filename,scale):
 	(h, w) = img_copy.shape[:2]
 	img_ratio = h/w
 
-	if(img_ratio >= 1.25):
+	if(img_ratio >= 1.2):
 
 		#crop images from top and bottom
 		crop = img_copy[0:w,0:w]
 		crop = image_resize(crop, max = scale)
-		new_file = os.path.splitext(filename)[0] + "-1.png"
-		cv2.imwrite(os.path.join(make_path, new_file), crop, [cv2.IMWRITE_PNG_COMPRESSION, 0])
-		if (args.mirror): flipImage(crop,new_file,make_path)
-		if (args.rotate): rotateImage(crop,filename,make_path)
+		saveImage(crop,make_path,filename+"-1")
+		if (args.mirror): flipImage(crop,filename+"-1",make_path)
+		if (args.rotate): rotateImage(crop,filename+"-1",make_path)
 
 		crop = img_copy[h-w:h,0:w]
 		crop = image_resize(crop, max = scale)
-		new_file = os.path.splitext(filename)[0] + "-2.png"
-		cv2.imwrite(os.path.join(make_path, new_file), crop, [cv2.IMWRITE_PNG_COMPRESSION, 0])
-		if (args.mirror): flipImage(crop,new_file,make_path)
-		if (args.rotate): rotateImage(crop,filename,make_path)
+		saveImage(crop,make_path,filename+"-2")
+		if (args.mirror): flipImage(crop,filename+"-2",make_path)
+		if (args.rotate): rotateImage(crop,filename+"-2",make_path)
 
 	elif(img_ratio <= .8):
 		#crop images from left and right
@@ -471,24 +471,22 @@ def makeManySquares(img,filename,scale):
 		
 		crop = img_copy[0:h,0:h]
 		crop = image_resize(crop, max = scale)
-		new_file = os.path.splitext(filename)[0] + "-wide1.png"
-		cv2.imwrite(os.path.join(make_path, new_file), crop, [cv2.IMWRITE_PNG_COMPRESSION, 0])
-		if (args.mirror): flipImage(crop,new_file,make_path)
-		if (args.rotate): rotateImage(crop,filename,make_path)
+		saveImage(crop,make_path,filename+"-1")
+		if (args.mirror): flipImage(crop,filename+"-1",make_path)
+		if (args.rotate): rotateImage(crop,filename+"-1",make_path)
 
 		crop = img_copy[0:h,w-h:w]
 		crop = image_resize(crop, max = scale)
-		new_file = os.path.splitext(filename)[0] + "-wide2.png"
-		cv2.imwrite(os.path.join(make_path, new_file), crop, [cv2.IMWRITE_PNG_COMPRESSION, 0])
-		if (args.mirror): flipImage(crop,new_file,make_path)
-		if (args.rotate): rotateImage(crop,filename,make_path)
+		saveImage(crop,make_path,filename+"-2")
+		if (args.mirror): flipImage(crop,filename+"-2",make_path)
+		if (args.rotate): rotateImage(crop,filename+"-2",make_path)
 
 	else:
 		img_copy = crop_to_square(img_copy)
 		img_copy = image_resize(img_copy, max = scale)
-		new_file = os.path.splitext(filename)[0] + ".png"
-		cv2.imwrite(os.path.join(make_path, new_file), img_copy, [cv2.IMWRITE_PNG_COMPRESSION, 0])
-		if (args.mirror): flipImage(img_copy,new_file,make_path)
+		saveImage(img_copy,make_path,filename)
+		
+		if(args.mirror): flipImage(img_copy,filename,make_path)
 		if(args.rotate): rotateImage(img_copy,filename,make_path)
 		
 
@@ -531,36 +529,21 @@ def makePix2Pix(img,filename,scale,direction="BtoA",value=[0,0,0]):
 
 def flipImage(img,filename,path):
 	flip_img = cv2.flip(img, 1)
-	flip_file = os.path.splitext(filename)[0] + "-flipped.png"
-	cv2.imwrite(os.path.join(path, flip_file), flip_img, [cv2.IMWRITE_PNG_COMPRESSION, 0])
+	flip_file = os.path.splitext(filename)[0] + "-flipped"
+	saveImage(flip_img,path,flip_file)
 
 def rotateImage(img,filename,path):
 	r = img.copy() 
-	r = imutils.rotate_bound(r, 90)
-
-	if(args.file_extension == "png"):
-		r_file = os.path.splitext(filename)[0] + "-rot90.png"
-		cv2.imwrite(os.path.join(path, r_file), r, [cv2.IMWRITE_PNG_COMPRESSION, 0])
-	elif(args.file_extension == "jpg"):
-		r_file = os.path.splitext(filename)[0] + "-rot90.jpg"
-		cv2.imwrite(os.path.join(path, r_file), r, [cv2.IMWRITE_JPEG_QUALITY, 90])
 
 	r = imutils.rotate_bound(r, 90)
-	if(args.file_extension == "png"):
-		r_file = os.path.splitext(filename)[0] + "-rot180.png"
-		cv2.imwrite(os.path.join(path, r_file), r, [cv2.IMWRITE_PNG_COMPRESSION, 0])
-	elif(args.file_extension == "jpg"):
-		r_file = os.path.splitext(filename)[0] + "-rot180.jpg"
-		cv2.imwrite(os.path.join(path, r_file), r, [cv2.IMWRITE_JPEG_QUALITY, 90])
+	saveImage(r,path,filename+"-rot90")
 
 	r = imutils.rotate_bound(r, 90)
-	if(args.file_extension == "png"):
-		r_file = os.path.splitext(filename)[0] + "-rot270.png"
-		cv2.imwrite(os.path.join(path, r_file), r, [cv2.IMWRITE_PNG_COMPRESSION, 0])
-	elif(args.file_extension == "jpg"):
-		r_file = os.path.splitext(filename)[0] + "-rot270.jpg"
-		cv2.imwrite(os.path.join(path, r_file), r, [cv2.IMWRITE_JPEG_QUALITY, 90])
+	saveImage(r,path,filename+"-rot180")
 
+	r = imutils.rotate_bound(r, 90)
+	saveImage(r,path,filename+"-rot270")
+	
 def processImage(img,filename):
 
 	if args.process_type == "resize":	
@@ -610,7 +593,7 @@ def main():
 			if hasattr(img, 'copy'):
 				print('processing image: ' + filename)
 				if args.name:
-					processImage(img,filename)
+					processImage(img,os.path.splitext(filename)[0])
 				else:
 					processImage(img,str(count))
 				count = count + int(1)
