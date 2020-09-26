@@ -578,6 +578,12 @@ def main():
 	inter = cv2.INTER_CUBIC
 	os.environ['OPENCV_IO_ENABLE_JASPER']= "true"
 
+	if os.path.isdir(args.input_folder):
+		print("Processing folder: " + args.input_folder)
+	else:
+		print("Not a working input_folder path: " + args.input_folder)
+		return;
+
 	for root, subdirs, files in os.walk(args.input_folder):
 		if(args.verbose): print('--\nroot = ' + root)
 
@@ -591,7 +597,7 @@ def main():
 			img = cv2.imread(file_path)
 
 			if hasattr(img, 'copy'):
-				print('processing image: ' + filename)
+				if(args.verbose): print('processing image: ' + filename)
 				if args.name:
 					processImage(img,os.path.splitext(filename)[0])
 				else:
