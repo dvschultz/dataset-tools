@@ -58,9 +58,9 @@ def saveImage(img,path,filename):
 def crop_raw(img, data):
 	(h, w) = img.shape[:2]
 	top = max(int( h * float(data[4]) ),0)
-	bottom = int( h * float(data[5]) )
+	bottom = min(int( h * float(data[5]) ),h)
 	left = max(int( h * float(data[3]) ),0)
-	right = int( h * float(data[6]) )
+	right = min(int( h * float(data[6]) ),w)
 
 	if args.verbose:
 		print('left: {}'.format(data[3]))
@@ -78,9 +78,9 @@ def crop_raw(img, data):
 def crop_square(img, data):
 	(h, w) = img.shape[:2]
 	top = max(int( h * float(data[4]) ),0)
-	bottom = int( h * float(data[5]) )
+	bottom = min(int( h * float(data[5]) ),h)
 	left = max(int( h * float(data[3]) ),0)
-	right = int( h * float(data[6]) )
+	right = min(int( h * float(data[6]) ),w)
 
 	raw_w = right-left
 	raw_h = bottom-top
@@ -121,10 +121,13 @@ def crop_square(img, data):
 	else:
 		cropped = img[top:bottom,left:right]
 
+	(h2, w2) = cropped.shape[:2]
+	# assert h2 == w2
+
 	return cropped
 
 def runway_csv(row):
-	output_path = args.output_folder + args.process_type +"/"
+	output_path = args.output_folder + args.process_type +"/" + row[1] + "/"
 	if not os.path.exists(output_path):
 		os.makedirs(output_path)
 
