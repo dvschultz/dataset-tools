@@ -24,7 +24,7 @@ def parse_args():
 		default='./output/',
 		help='Directory path to the outputs folder. (default: %(default)s)')
 
-	parser.add_argument('--file_path', type=str,
+	parser.add_argument('--bounds_file_path', type=str,
 		default='',
 		help='Path to the file containing bounds data. (default: %(default)s)')
 
@@ -81,6 +81,7 @@ def crop_square(img, data):
 	bottom = min(int( h * float(data[5]) ),h)
 	left = max(int( h * float(data[3]) ),0)
 	right = min(int( h * float(data[6]) ),w)
+	if(args.verbose): print(top,bottom,left,right)
 
 	raw_w = right-left
 	raw_h = bottom-top
@@ -140,16 +141,58 @@ def runway_csv(row):
 
 	return img_crop, output_path
 
-def yolo_v5(row):
-	return
+def yolo_v5(data, filename):
+	output_path = args.output_folder + args.process_type +"/" + data[0] + "/"
+	if not os.path.exists(output_path):
+		os.makedirs(output_path)
 
-def processRow(row):
+	fname = filename.split('.')[0]
+	if os.path.exists(args.input_folder + '/' + fname + '.jpg'):
+		img = cv2.imread(args.input_folder + '/' + fname + '.jpg')
+	elif os.path.exists(args.input_folder + '/' + fname + '.jpeg'):
+		img = cv2.imread(args.input_folder + '/' + fname + '.jpeg')
+	elif os.path.exists(args.input_folder + '/' + fname + '.png'):
+		img = cv2.imread(args.input_folder + '/' + fname + '.png')
+	else:
+		print('no file found matching: ' + fname + '\nThis might be a video frame, which is not currently supported.')	
+		img = [0]
+
+	if(len(img) > 1):
+		#reformat bounds data to left, top, right, bottom
+		left = float(data[1]) - (float(data[3])/2)
+		top = float(data[2]) - (float(data[4])/2)
+		right = float(data[1]) + (float(data[3])/2)
+		bottom = float(data[2]) + (float(data[4])/2)
+
+		b_reformed = [data[0],0.0,0.0,left,top,bottom,right]
+
+		if args.process_type=="crop":
+			img_crop = crop_raw(img, b_reformed)
+		elif args.process_type=="crop_to_square":
+			img_crop = crop_square(img, b_reformed)
+	else:
+		img_crop = [0]
+
+	return img_crop, output_path
+
+def processRow(bounds,filename):
 	if args.file_format == "runway_csv":	
-		img, output_path = runway_csv(row)
-	if args.file_format == "yolo_v5":	
-		yolo_v5(row)
+		img, output_path = runway_csv(bounds)
+		fname = bounds[0]
+	elif args.file_format == "yolo_v5":
+		bs = bounds.split('\n')
+		fname = filename.split('.')[0]
 
-	saveImage(img,output_path,row[0])
+		#account for numerous bounds
+		for i, bound in enumerate(bs):
+			if(args.verbose): print(bound)
+			if i > 0:
+				fname = filename.split('.')[0] + '_' + str(i);
+			if(len(bound.split(' ')) > 1):
+				img, output_path = yolo_v5(bound.split(' '),filename)
+
+	if(len(img) > 1):
+		saveImage(img,output_path,fname)
 
 def main():
 	global args
@@ -161,19 +204,30 @@ def main():
 	os.environ['OPENCV_IO_ENABLE_JASPER']= "true"
 
 	if args.file_format == "runway_csv":
-		with open(args.file_path, newline='') as csvfile:
+		with open(args.bounds_file_path, newline='') as csvfile:
 			csv_reader = csv.reader(csvfile)
 			for row in csv_reader:
 				if count != 0: #skip header
 					if (args.verbose): print(', '.join(row))
 					
 					if float(row[2]) >= args.min_confidence:
-						
 						print('Processing row %d: %s' % (count, row[0]))
-						processRow(row)
+						processRow(row,csvfile)
 
 				count+=1
+	elif args.file_format == "yolo_v5":
+		for root, subdirs, files in os.walk(args.bounds_file_path):
+			files = [f for f in files if not f[0] == '.']
+			for filename in files:if(args.verbose): 
+				file_path = os.path.join(root, filename)
+				if(args.verbose): print('\t- file %s (full path: %s)' % (filename, file_path))
 
+				#read .txt file
+				print('Processing file: %s' % (filename))
+				f = open(file_path, "r")
+				data = f.read()
+				processRow(data,filename)
+				f.close()
 
 if __name__ == "__main__":
 	main()
