@@ -347,6 +347,10 @@ def makeSquare(img,filename,scale):
 
 		if(diff_x%2 == 0 and diff_y%2 == 0 ):
 			img_sq = cv2.copyMakeBorder(img_sq, int(diff_y/2), int(diff_y/2), int(diff_x/2), int(diff_x/2), bType,value=bColor)
+		elif(diff_x%2 == 0):
+			img_sq = cv2.copyMakeBorder(img_sq, int(diff_y/2)+1, int(diff_y/2), int(diff_x/2), int(diff_x/2), bType,value=bColor)
+		else:
+			img_sq = cv2.copyMakeBorder(img_sq, int(diff_y/2), int(diff_y/2), int(diff_x/2)+1, int(diff_x/2), bType,value=bColor)
 	elif(h > w):
 		# pad left/right
 		diff = h-w
