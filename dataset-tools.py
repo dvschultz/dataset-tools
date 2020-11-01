@@ -413,6 +413,9 @@ def makeCrop(img,filename):
 	img_copy = img.copy()
 	img_copy,error = arbitrary_crop(img_copy,args.height,args.width)
 
+	if((img_copy.shape[0] != args.width) or (img_copy.shape[1] != args.height)):
+		print("unable to crop to the size requested")
+
 	if (error==False):
 		if(args.file_extension == "png"):
 			new_file = os.path.splitext(filename)[0] + ".png"
