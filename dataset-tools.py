@@ -248,8 +248,8 @@ def makeResize(img,filename,scale):
 		img_copy = image_resize(img_copy, max = scale)
 
 	saveImage(img_copy,remakePath,filename)
-	if (args.mirror): flipImage(img_copy,new_file,remakePath)
-	if (args.rotate): rotateImage(img_copy,new_file,remakePath)
+	if (args.mirror): flipImage(img_copy,filename,remakePath)
+	if (args.rotate): rotateImage(img_copy,filename,remakePath)
 
 def makeDistance(img,filename,scale):
 	makePath = args.output_folder + "distance-"+ str(args.max_size)+"/"
