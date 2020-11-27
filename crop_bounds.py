@@ -35,11 +35,47 @@ def saveImage(img,path,filename):
         new_file = os.path.splitext(filename)[0] + ".jpg"
         cv2.imwrite(os.path.join(path, new_file), img, [cv2.IMWRITE_JPEG_QUALITY, 90])
 
+def removeText(img):
+    scalar = 0.5
+    image = img
+    (ih, iw) = image.shape[:2]
+    resized = cv2.resize(image, (int(iw*scalar),int(ih*scalar)), interpolation = inter)
+    hsv = cv2.cvtColor(resized, cv2.COLOR_BGR2HSV)
+    lower = np.array([0, 0, 0])
+    upper = np.array([127, 100, 200])
+    mask = cv2.inRange(hsv, lower, upper)
+
+    # Create horizontal kernel and dilate to connect text characters
+    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5,3))
+    dilate = cv2.dilate(mask, kernel, iterations=5)
+
+    # Find contours and filter using aspect ratio
+    # Remove non-text contours by filling in the contour
+    cnts = cv2.findContours(dilate, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    cnts = cnts[0] if len(cnts) == 2 else cnts[1]
+    for c in cnts:
+        x,y,w,h = cv2.boundingRect(c)
+        ar = w / float(h)
+        if (ar < 3):
+            cv2.drawContours(dilate, [c], -1, (0,0,0), -1)
+
+    # 
+    # Bitwise dilated image with mask, invert, then OCR
+    dilate = cv2.resize(dilate, (iw,ih), interpolation = inter)
+    dilate[int(ih*.1):int(ih*.7),0:iw] = 0 #clear errant text capture
+    dilate = cv2.cvtColor(dilate,cv2.COLOR_GRAY2RGB)
+    result = cv2.bitwise_or(dilate, image)
+
+    return result
+
 def processImage(img,filename):
     padding = args.padding
 
-    original = img.copy()
+    # original = img.copy()
     (h, w) = img.shape[:2]
+    if(args.remove_text):
+        img = removeText(img)
+        rt_img = img.copy()
 
     resized = cv2.resize(img, (int(w*args.scalar),int(h*args.scalar)), interpolation = inter)
     gray = cv2.cvtColor(resized, cv2.COLOR_BGR2GRAY)
@@ -82,11 +118,12 @@ def processImage(img,filename):
     else:
         crop_dim[3] = w
 
-    img_out = original[crop_dim[0]:crop_dim[1],crop_dim[2]:crop_dim[3]]
+    img_out = img[crop_dim[0]:crop_dim[1],crop_dim[2]:crop_dim[3]]
     saveImage(img_out,args.output_folder,filename)
 
     if (args.save_canny):
         saveImage(masked,args.output_folder,filename+'-canny')
+        saveImage(rt_img,args.output_folder,filename+'-rt')
 
 def parse_args():
     desc = "Tools to crop unnecessary space from outside of images" 
@@ -115,6 +152,9 @@ def parse_args():
     parser.add_argument('--process_type', type=str,
         default='canny',
         help='Options ["canny","threshold"] (default: %(default)s)')
+
+    parser.add_argument('--remove_text', action='store_true',
+        help='Remove text from image')
 
     parser.add_argument('--save_canny', action='store_true',
         help='Save out Canny image (for debugging)')
