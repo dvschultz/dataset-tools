@@ -128,14 +128,14 @@ def processImage(img,filename):
         img[np.where((img>=[245,245,245]).all(axis=2))] = new_color
 
     if(args.process_type == 'contours'):
-        print('test contour on: ' + filename)
+        print('finds contours in: ' + filename)
         foldername = os.path.join(args.output_folder, filename)
-
 
         if not os.path.exists(foldername):
             os.makedirs(foldername)
 
-        saveImage(img,foldername,filename+'-original')
+        if(args.keep_original):
+            saveImage(img,foldername,filename+'-original')
 
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         blurred = cv2.GaussianBlur(gray, (args.blur_size, args.blur_size), 0)
@@ -225,6 +225,9 @@ def parse_args():
     parser.add_argument('--input_folder', type=str,
         default='./input/',
         help='Directory path to the inputs folder. (default: %(default)s)')
+
+    parser.add_argument('--keep_original', action='store_true',
+        help='Save out original image alongside crops (for comparison or debugging)')
 
     parser.add_argument('--min_size', type=int, 
         default=1024,

@@ -4,6 +4,7 @@ import os
 import imutils
 import cv2
 import random
+import shutil
 
 # print(cv2.__version__)
 
@@ -99,12 +100,14 @@ def sort(img,filename):
 	else:
 		new_file = os.path.splitext(filename)[0] + ".jpg"
 		cv2.imwrite(os.path.join(path, new_file), img, [cv2.IMWRITE_JPEG_QUALITY, 90])
-def processImage(img,filename):
+def processImage(img,filename,tag=None):
 
 	if args.process_type == "exclude":	
 		exclude(img,filename)
 	if args.process_type == "sort":	
 		sort(img,filename)
+	if args.process_type == "tagsort":	
+		tagsort(img,filename,tag)
 
 def main():
 	global args
@@ -125,6 +128,23 @@ def main():
 		for filename in files:
 			file_path = os.path.join(root, filename)
 			if(args.verbose): print('\t- file %s (full path: %s)' % (filename, file_path))
+
+			if(args.process_type == "tagsort"):
+				import mac_tag
+
+				tags = mac_tag.get(file_path)
+				if(len(tags[file_path])>0):
+					ts = tags[file_path]
+					for t in ts:
+						tagpath = os.path.join(args.output_folder, t)
+						
+						if not os.path.exists(tagpath):
+							os.makedirs(tagpath)
+						
+						new_path = os.path.join(tagpath, filename)
+						shutil.copy2(file_path,new_path)
+
+				continue
 			
 			img = cv2.imread(file_path)
 
