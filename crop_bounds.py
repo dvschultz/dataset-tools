@@ -137,25 +137,30 @@ def processImage(img,filename):
         if(args.keep_original):
             saveImage(img,foldername,filename+'-original')
 
+        original = img.copy()
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         blurred = cv2.GaussianBlur(gray, (args.blur_size, args.blur_size), 0)
         
-        # ret3,th3 = cv2.threshold(blurred,0,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
-        masked = cv2.adaptiveThreshold(blurred,255,cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV,11,10)
+        masked = cv2.adaptiveThreshold(blurred,255,cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV,args.thresh_block,args.thresh_c)
         kernel = np.ones((3,3),np.uint8)
         dilate = cv2.dilate(masked, kernel, iterations=args.dilate_iter)
-
         contours, hierarchy = cv2.findContours(dilate, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
+        # ret3,th3 = cv2.threshold(blurred,0,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
+        # kernel = np.ones((3,3),np.uint8)
+        # dilate = cv2.dilate(th3, kernel, iterations=args.dilate_iter)
+        # contours, hierarchy = cv2.findContours(dilate, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+
         if(args.min_width and args.min_height):
-            minw = min_width
-            minh = min_height
+            minw = args.min_width
+            minh = args.min_height
         else:
             minw = minh = args.min_size
 
         image_number = 0
         drawn = img.copy()
         for contour in contours:
+            fn = filename+'-'+str(image_number)
             x,y,w,h = cv2.boundingRect(contour)
 
             if(args.min_width and args.min_height):
@@ -164,15 +169,66 @@ def processImage(img,filename):
                 use = True if ((w>args.min_size or h>args.min_size) and ((h != oh) and (w != ow)) ) else False
             
             if(use):
-                crop_dim = [y,(y+h),x,(x+w)]
-                # crop_dim = [(int(1/args.scalar))*x for x in crop_dim]
-                crop_dim = pad_crop(crop_dim,args.padding,oh,ow)
+                if(args.rotate):
+                    rect = cv2.minAreaRect(contour)
+                    box = cv2.boxPoints(rect)
+                    box = np.int0(box)
 
-                roi = img[crop_dim[0]:crop_dim[1],crop_dim[2]:crop_dim[3]]
-                # drawn = cv2.rectangle(drawn, (x, y), (x + w, y + h), (36,255,12), 2)
+                    #crop image inside bounding box
+                    scale = 1  # cropping margin, 1 == no margin
+                    W = rect[1][0]
+                    H = rect[1][1]
 
-                fn = filename+'-'+str(image_number)
-                saveImage(roi,foldername,fn)
+                    Xs = [i[0] for i in box]
+                    Ys = [i[1] for i in box]
+                    x1 = min(Xs)
+                    x2 = max(Xs)
+                    y1 = min(Ys)
+                    y2 = max(Ys)
+
+                    angle = rect[2]
+                    if(args.max_angle):
+                        a = angle % 90.0
+                        if((a > args.max_angle) and (a < (90.0-args.max_angle))):
+                            print('Does not match angle requirements: ' + str(a))
+                            continue
+
+                    if(args.fill_boxes):
+                        rgb = (np.random.randint(0,255),np.random.randint(0,255),np.random.randint(0,255))
+                        drawn = cv2.drawContours(drawn,[box],0,rgb,2)
+                        drawn = cv2.fillPoly(drawn, pts =[box], color=rgb)
+                    else:
+                        drawn = cv2.drawContours(drawn,[box],0,(0,255,0),2)
+
+                    rotated = False
+                    if angle < -45:
+                        angle += 90
+                        rotated = True
+
+                    saveImage(drawn,foldername,fn+'-boxes')
+
+                    center = (int((x1+x2)/2), int((y1+y2)/2))
+                    size = (int(scale*(x2-x1)), int(scale*(y2-y1)))
+
+                    M = cv2.getRotationMatrix2D((size[0]/2, size[1]/2), angle, 1.0)
+
+                    cropped = cv2.getRectSubPix(original, size, center)
+                    cropped = cv2.warpAffine(cropped, M, size)
+
+                    croppedW = W if not rotated else H
+                    croppedH = H if not rotated else W
+
+                    image = cv2.getRectSubPix(cropped, (int(croppedW*scale), int(croppedH*scale)), (size[0]/2, size[1]/2))
+                    saveImage(image, foldername, fn)
+                else:
+                    crop_dim = [y,(y+h),x,(x+w)]
+                    # crop_dim = [(int(1/args.scalar))*x for x in crop_dim]
+                    crop_dim = pad_crop(crop_dim,args.padding,oh,ow)
+
+                    roi = img[crop_dim[0]:crop_dim[1],crop_dim[2]:crop_dim[3]]
+                    # drawn = cv2.rectangle(drawn, (x, y), (x + w, y + h), (36,255,12), 2)
+
+                    saveImage(roi,foldername,fn)
                 
                 image_number += 1
 
@@ -229,9 +285,9 @@ def parse_args():
     parser.add_argument('--keep_original', action='store_true',
         help='Save out original image alongside crops (for comparison or debugging)')
 
-    parser.add_argument('--min_size', type=int, 
-        default=1024,
-        help='minimum width contour, in pixels (default: %(default)s)')
+    parser.add_argument('--max_angle', type=float, 
+        default=None,
+        help='Maximum rotation to output. For use with --rotate (default: %(default)s)')
 
     parser.add_argument('--min_height', type=int, 
         default=None,
@@ -241,6 +297,10 @@ def parse_args():
         default=None,
         help='minimum width contour, in pixels (default: %(default)s)')
 
+    parser.add_argument('--min_size', type=int, 
+        default=1024,
+        help='minimum width contour, in pixels (default: %(default)s)')
+
     parser.add_argument('--output_folder', type=str,
         default='./output/',
         help='Directory path to the outputs folder. (default: %(default)s)')
@@ -248,6 +308,9 @@ def parse_args():
     parser.add_argument('--file_extension', type=str,
         default='png',
         help='Border style to use when using the square process type ["png","jpg"] (default: %(default)s)')
+
+    parser.add_argument('--fill_boxes', action='store_true',
+        help='Fill box diagrams when using --rotate (for comparison or debugging)')
 
     parser.add_argument('--padding', type=int, 
         default=100,
@@ -270,6 +333,9 @@ def parse_args():
         default=None,
         help='color to replace text blocks with; use bgr values (default: %(default)s)')
 
+    parser.add_argument('--rotate', action='store_true',
+        help='Save out original image alongside crops (for comparison or debugging)')
+
     parser.add_argument('--img_debug', action='store_true',
         help='Save out masked image (for debugging)')
 
@@ -288,6 +354,16 @@ def parse_args():
     parser.add_argument('--text_color', type=str, 
         default='black',
         help='options: black, brown (default: %(default)s)')
+
+    parser.add_argument('--thresh_block', type=int, 
+        default=11,
+        help='block size for thresholding (default: %(default)s)')
+
+    parser.add_argument('--thresh_c', type=int, 
+        default=2,
+        help='c value for thresholding (default: %(default)s)')
+
+
 
     parser.add_argument('--verbose', action='store_true',
         help='Print progress to console.')

@@ -39,7 +39,7 @@ def parse_args():
 		help='Amount of blur to apply (use odd numbers). Use with --blur_type.  (default: %(default)s)')
 
 	parser.add_argument('--max_size', type=int, 
-		default=512,
+		default=1024,
 		help='Maximum width or height of the output images. (default: %(default)s)')
 
 	parser.add_argument('--height', type=int, 
@@ -69,6 +69,10 @@ def parse_args():
 	parser.add_argument('--scale', type=float, 
 		default=2.0,
 		help='Scalar value. For use with scale process type (default: %(default)s)')
+
+	parser.add_argument('--skip_tags', type=str, 
+        default=None,
+        help='comma separated color tags (for Mac only) (default: %(default)s)')
 
 	parser.add_argument('--direction', type=str,
 		default='AtoB',
@@ -361,10 +365,14 @@ def makeSquare(img,filename,scale):
 	elif(w > h):
 		# pad top/bottom
 		diff = w-h
-		if(diff%2 == 0):
-			img_sq = cv2.copyMakeBorder(img_sq, int(diff/2), int(diff/2), 0, 0, bType,value=bColor)
+
+		if(args.v_align == 'bottom'):
+			img_sq = cv2.copyMakeBorder(img_sq, diff, 0, 0, 0, bType,value=bColor)
 		else:
-			img_sq = cv2.copyMakeBorder(img_sq, int(diff/2), int(diff/2)+1, 0, 0, bType,value=bColor)
+			if(diff%2 == 0):
+				img_sq = cv2.copyMakeBorder(img_sq, int(diff/2), int(diff/2), 0, 0, bType,value=bColor)
+			else:
+				img_sq = cv2.copyMakeBorder(img_sq, int(diff/2), int(diff/2)+1, 0, 0, bType,value=bColor)
 	else:
 		diff = scale-h
 		if(diff%2 == 0):
@@ -585,6 +593,9 @@ def main():
 	inter = cv2.INTER_CUBIC
 	os.environ['OPENCV_IO_ENABLE_JASPER']= "true"
 
+	if(args.skip_tags != None):
+		import mac_tag
+
 	if os.path.isdir(args.input_folder):
 		print("Processing folder: " + args.input_folder)
 	else:
@@ -598,18 +609,31 @@ def main():
 			if(args.verbose): print('\t- subdirectory ' + subdir)
 
 		for filename in files:
+			skipped = False
 			file_path = os.path.join(root, filename)
 			if(args.verbose): print('\t- file %s (full path: %s)' % (filename, file_path))
-			
-			img = cv2.imread(file_path)
 
-			if hasattr(img, 'copy'):
-				if(args.verbose): print('processing image: ' + filename)
-				if args.name:
-					processImage(img,os.path.splitext(filename)[0])
-				else:
-					processImage(img,str(count))
-				count = count + int(1)
+			if(args.skip_tags != None):
+				tags = [str(item) for item in args.skip_tags.split(',')]
+				# tags = mac_tag.get(file_path)
+				# print(tags)
+				for tag in tags:
+					matches = mac_tag.match(tag,file_path)
+					if(file_path in matches):
+						print('skipping file: ' + filename)
+						skipped = True
+						
+			
+			if not skipped:
+				img = cv2.imread(file_path)
+
+				if hasattr(img, 'copy'):
+					if(args.verbose): print('processing image: ' + filename)
+					if args.name:
+						processImage(img,os.path.splitext(filename)[0])
+					else:
+						processImage(img,str(count))
+					count = count + int(1)
 
 
 if __name__ == "__main__":
