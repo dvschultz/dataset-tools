@@ -6,15 +6,15 @@ def parse_args():
 	desc = "Tools to normalize an image dataset" 
 	parser = argparse.ArgumentParser(description=desc)
 
-	parser.add_argument('--input_folder', type=str,
+	parser.add_argument('-i','--input_folder', type=str,
 		default='./input/',
 		help='Directory path to the inputs folder. (default: %(default)s)')
 
-	parser.add_argument('--output_folder', type=str,
+	parser.add_argument('-o','--output_folder', type=str,
 		default='./output/',
 		help='Directory path to the outputs folder. (default: %(default)s)')
 
-	parser.add_argument('--verbose', action='store_true',
+	parser.add_argument('-v','--verbose', action='store_true',
 		help='Print progress to console.')
 
 	args = parser.parse_args()

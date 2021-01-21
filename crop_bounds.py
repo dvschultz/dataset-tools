@@ -278,7 +278,7 @@ def parse_args():
         default=1,
         help='iterations for dilation kernel (increasing can help with tracked type) (default: %(default)s)')
 
-    parser.add_argument('--input_folder', type=str,
+    parser.add_argument('-i','--input_folder', type=str,
         default='./input/',
         help='Directory path to the inputs folder. (default: %(default)s)')
 
@@ -301,11 +301,11 @@ def parse_args():
         default=1024,
         help='minimum width contour, in pixels (default: %(default)s)')
 
-    parser.add_argument('--output_folder', type=str,
+    parser.add_argument('-o','--output_folder', type=str,
         default='./output/',
         help='Directory path to the outputs folder. (default: %(default)s)')
 
-    parser.add_argument('--file_extension', type=str,
+    parser.add_argument('-f','--file_extension', type=str,
         default='png',
         help='Border style to use when using the square process type ["png","jpg"] (default: %(default)s)')
 
@@ -321,7 +321,7 @@ def parse_args():
         default=None,
         help='crop image before processing (in pixels). Top,Bottom,Left,Right; example: "10,20,10,10" (default: %(default)s)')
 
-    parser.add_argument('--process_type', type=str,
+    parser.add_argument('-p','--process_type', type=str,
         default='contours',
         help='Options ["canny","threshold","contours"] (default: %(default)s)')
 

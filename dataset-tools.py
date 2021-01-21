@@ -18,15 +18,15 @@ def parse_args():
 	parser.add_argument('--force_max', action='store_true',
 		help='Force max size')
 
-	parser.add_argument('--input_folder', type=str,
+	parser.add_argument('-i','--input_folder', type=str,
 		default='./input/',
 		help='Directory path to the inputs folder. (default: %(default)s)')
 
-	parser.add_argument('--output_folder', type=str,
+	parser.add_argument('-o','--output_folder', type=str,
 		default='./output/',
 		help='Directory path to the outputs folder. (default: %(default)s)')
 
-	parser.add_argument('--process_type', type=str,
+	parser.add_argument('-p','--process_type', type=str,
 		default='resize',
 		help='Process to use. ["resize","square","crop_to_square","canny","canny-pix2pix","crop_square_patch","scale","many_squares","crop","distance"] (default: %(default)s)')
 

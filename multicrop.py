@@ -47,7 +47,7 @@ def parse_args():
     desc = "Tools to crop random patches for images" 
     parser = argparse.ArgumentParser(description=desc)
 
-    parser.add_argument('--file_extension', type=str,
+    parser.add_argument('-f','--file_extension', type=str,
         default='png',
         help='Border style to use when using the square process type ["png","jpg"] (default: %(default)s)')
 
@@ -55,7 +55,7 @@ def parse_args():
         default=2,
         help='How many random crops to create (default: %(default)s)')
 
-    parser.add_argument('--input_folder', type=str,
+    parser.add_argument('-i','--input_folder', type=str,
         default='./input/',
         help='Directory path to the inputs folder. (default: %(default)s)')
 
@@ -70,7 +70,7 @@ def parse_args():
     parser.add_argument('--no_resize', action='store_true',
         help='Do not resize patches.')
 
-    parser.add_argument('--output_folder', type=str,
+    parser.add_argument('-o','--output_folder', type=str,
         default='./output/',
         help='Directory path to the outputs folder. (default: %(default)s)')
 
