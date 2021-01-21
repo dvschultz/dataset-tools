@@ -42,8 +42,9 @@ def main():
             out_path = os.path.join(args.output_folder, (fn+'.png'))
             if(args.verbose): print('\t- file %s (full path: %s)' % (filename, file_path))
 
-            psd = PSDImage.open(file_path)
-            psd.composite().save(out_path)
+            psd = PSDImage.load(file_path)
+            psd.print_tree()
+            psd.as_PIL().save(out_path)
 
 
 if __name__ == "__main__":
