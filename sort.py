@@ -18,21 +18,25 @@ def parse_args():
 	parser.add_argument('--exact', action='store_true',
 		help='match to exact specs')
 
-	parser.add_argument('--input_folder', type=str,
+	parser.add_argument('-i','--input_folder', type=str,
 		default='./input/',
 		help='Directory path to the inputs folder. (default: %(default)s)')
 
-	parser.add_argument('--output_folder', type=str,
+	parser.add_argument('-o','--output_folder', type=str,
 		default='./output/',
 		help='Directory path to the outputs folder. (default: %(default)s)')
 
-	parser.add_argument('--process_type', type=str,
+	parser.add_argument('-p','--process_type', type=str,
 		default='exclude',
-		help='Process to use. ["exclude","sort"] (default: %(default)s)')
+		help='Process to use. ["exclude","sort","tagsort","lpips"] (default: %(default)s)')
 
 	parser.add_argument('--max_size', type=int, 
 		default=2048,
 		help='Maximum width or height of the output images. (default: %(default)s)')
+
+	parser.add_argument('--max_dist', type=float, 
+		default=1.0,
+		help='Maximum distance between two images (for lpips process). (default: %(default)s)')
 
 	parser.add_argument('--min_size', type=int, 
 		default=1024,
@@ -42,9 +46,16 @@ def parse_args():
 		default=1.0,
 		help='Ratio of image (height/width). (default: %(default)s)')
 
-	parser.add_argument('--file_extension', type=str,
+	parser.add_argument('-f','--file_extension', type=str,
 		default='png',
 		help='file type ["png","jpg"] (default: %(default)s)')
+
+	parser.add_argument('--start_img', type=str,
+		help='image for comparison (for lpips process)')
+
+	parser.add_argument('--use_gpu', action='store_true', 
+		help='use GPU (for lpips process)')
+
 
 
 
@@ -100,6 +111,9 @@ def sort(img,filename):
 	else:
 		new_file = os.path.splitext(filename)[0] + ".jpg"
 		cv2.imwrite(os.path.join(path, new_file), img, [cv2.IMWRITE_JPEG_QUALITY, 90])
+
+# def lpipssort(img,filename):
+
 def processImage(img,filename,tag=None):
 
 	if args.process_type == "exclude":	
@@ -124,6 +138,29 @@ def main():
 
 		for subdir in subdirs:
 			if(args.verbose): print('\t- subdirectory ' + subdir)
+
+		if(args.process_type == "lpips"):
+			import lpips
+
+			loss_fn = lpips.LPIPS(net='alex',version='0.1')			
+
+			img0 = lpips.im2tensor(lpips.load_image(args.start_img))
+			
+			if(args.use_gpu):
+				loss_fn.cuda()
+				img0 = img0.cuda()
+
+			for filename in files:
+				img1 = lpips.im2tensor(lpips.load_image(os.path.join(root, filename)))
+				
+				if(args.use_gpu):
+					img1 = img1.cuda()
+
+				dist01 = loss_fn.forward(img0,img1)
+				print('Distance: %.3f'%dist01)
+
+
+			continue
 
 		for filename in files:
 			file_path = os.path.join(root, filename)

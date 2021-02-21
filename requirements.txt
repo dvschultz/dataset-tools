@@ -4,3 +4,4 @@ opencv-python>=4.1.0.25
 scipy
 mac-tag
 psd-tools3
+lpips
