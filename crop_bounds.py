@@ -105,6 +105,49 @@ def removeText(img,dilate_iter):
 
     return result
 
+def image_resize(image, width = None, height = None, max = None):
+    # initialize the dimensions of the image to be resized and
+    # grab the image size
+    dim = None
+    (h, w) = image.shape[:2]
+
+    if max is not None:
+        if w > h:
+            # produce
+            r = max / float(w)
+            dim = (max, int(h * r))
+        elif h > w:
+            r = max / float(h)
+            dim = (int(w * r), max)
+        else :
+            dim = (max, max)
+
+    else: 
+        # if both the width and height are None, then return the
+        # original image
+        if width is None and height is None:
+            return image
+
+        # check to see if the width is None
+        if width is None:
+            # calculate the ratio of the height and construct the
+            # dimensions
+            r = height / float(h)
+            dim = (int(w * r), height)
+
+        # otherwise, the height is None
+        else:
+            # calculate the ratio of the width and construct the
+            # dimensions
+            r = width / float(w)
+            dim = (width, int(h * r))
+
+    # resize the image
+    resized = cv2.resize(image, dim, interpolation = inter)
+
+    # return the resized image
+    return resized
+
 def processImage(img,filename):
     padding = args.padding
     (oh, ow) = img.shape[:2]
@@ -139,12 +182,21 @@ def processImage(img,filename):
 
         original = img.copy()
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        blurred = cv2.GaussianBlur(gray, (args.blur_size, args.blur_size), 0)
+        if(args.blur_size):
+            gray = cv2.GaussianBlur(gray, (args.blur_size, args.blur_size), 0)
         
-        masked = cv2.adaptiveThreshold(blurred,255,cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV,args.thresh_block,args.thresh_c)
-        kernel = np.ones((3,3),np.uint8)
-        dilate = cv2.dilate(masked, kernel, iterations=args.dilate_iter)
-        contours, hierarchy = cv2.findContours(dilate, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        # masked = cv2.adaptiveThreshold(gray,255,cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY_INV,args.thresh_block,args.thresh_c)
+        _,masked = cv2.threshold(gray,args.min,255,cv2.THRESH_BINARY_INV)
+        # kernel = np.ones((7,7),np.uint8)
+
+        if(args.dilate_iter > 0):
+            kernel = np.ones((3,3),np.uint8)
+            masked = cv2.dilate(masked, kernel, iterations=args.dilate_iter)
+        if(args.erode_iter > 0):
+            kernel = np.ones((3,3),np.uint8)
+            masked = cv2.erode(masked, kernel, iterations=args.erode_iter)
+
+        contours, hierarchy = cv2.findContours(masked, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
 
         # ret3,th3 = cv2.threshold(blurred,0,255,cv2.THRESH_BINARY+cv2.THRESH_OTSU)
         # kernel = np.ones((3,3),np.uint8)
@@ -219,6 +271,8 @@ def processImage(img,filename):
                     croppedH = H if not rotated else W
 
                     image = cv2.getRectSubPix(cropped, (int(croppedW*scale), int(croppedH*scale)), (size[0]/2, size[1]/2))
+                    if(args.resize):
+                        image = image_resize(image, max = args.resize)
                     saveImage(image, foldername, fn)
                 else:
                     crop_dim = [y,(y+h),x,(x+w)]
@@ -228,12 +282,14 @@ def processImage(img,filename):
                     roi = img[crop_dim[0]:crop_dim[1],crop_dim[2]:crop_dim[3]]
                     # drawn = cv2.rectangle(drawn, (x, y), (x + w, y + h), (36,255,12), 2)
 
+                    if(args.resize):
+                        roi = image_resize(roi, max = args.resize)
                     saveImage(roi,foldername,fn)
                 
                 image_number += 1
 
         if (args.img_debug):
-            saveImage(dilate,foldername,filename+'-mask')
+            saveImage(masked,foldername,filename+'-mask')
             # saveImage(drawn,args.output_folder,filename+'-drawn')
 
     else:
@@ -278,6 +334,11 @@ def parse_args():
         default=1,
         help='iterations for dilation kernel (increasing can help with tracked type) (default: %(default)s)')
 
+    parser.add_argument('--erode_iter', type=int, 
+        default=1,
+        help='iterations for erode kernel (increasing can help with tracked type) (default: %(default)s)')
+
+
     parser.add_argument('-i','--input_folder', type=str,
         default='./input/',
         help='Directory path to the inputs folder. (default: %(default)s)')
@@ -312,6 +373,10 @@ def parse_args():
     parser.add_argument('--fill_boxes', action='store_true',
         help='Fill box diagrams when using --rotate (for comparison or debugging)')
 
+    parser.add_argument('--min', type=int, 
+        default=127,
+        help='min pixel color (default: %(default)s)')
+
     parser.add_argument('--padding', type=int, 
         default=100,
         help='padding around crop, in pixels. (default: %(default)s)')
@@ -332,6 +397,10 @@ def parse_args():
         type=str,
         default=None,
         help='color to replace text blocks with; use bgr values (default: %(default)s)')
+
+    parser.add_argument('--resize', type=int, 
+        default=None,
+        help='resize longest side, in pixels (default: %(default)s)')
 
     parser.add_argument('--rotate', action='store_true',
         help='Save out original image alongside crops (for comparison or debugging)')

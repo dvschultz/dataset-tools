@@ -12,36 +12,43 @@ def saveImage(img,path,filename):
 		cv2.imwrite(os.path.join(path, new_file), img, [cv2.IMWRITE_JPEG_QUALITY, 90])
 
 def processImage(img,filename):
+    fn = filename.replace(' ','-').replace('&','_').replace('.','')
     (h, w) = img.shape[:2]
     min_size = args.min_size
 
+    if(args.verbose): print('max_size: {}'.format(str(max_size)))
     if(args.max_size):
         max_size = args.max_size
     else:
         max_size = min(h,w)
-    if(args.verbose): print('max_size: {}'.format(str(max_size)))
 
     if (min_size > max_size):
-        print('image is too small for set min_size: ' + filename);
+        print('image is too small for set min_size: ' + fn);
         return
 
-    original = img.copy()
-	
-    # generate random patch size between min ad max
-    r = np.random.randint(min_size, max_size, size=args.how_many)
-    
-    for i in range(args.how_many):
+    print('min_size: {}'.format(str(min_size)))
+    print('max_size: {}'.format(str(max_size)))
+
+    if (min_size != max_size):
+        original = img.copy()
+        # generate random patch size between min ad max
+        r = np.random.randint(min_size, max_size, size=args.how_many)
         
-        start = (np.random.randint(0,h-r[i]),np.random.randint(0,w-r[i]))
-        patch = img[start[0]:start[0]+r[i],start[1]:start[1]+r[i]]
+        for i in range(args.how_many):
+            
+            start = (np.random.randint(0,h-r[i]),np.random.randint(0,w-r[i]))
+            patch = img[start[0]:start[0]+r[i],start[1]:start[1]+r[i]]
 
-        if not args.no_resize:
-            if(args.resize):
-                patch = cv2.resize(patch, (args.resize,args.resize), interpolation = inter)
-            else:
-                patch = cv2.resize(patch, (min_size,min_size), interpolation = inter)
+            if not args.no_resize:
+                if(args.resize):
+                    patch = cv2.resize(patch, (args.resize,args.resize), interpolation = inter)
+                else:
+                    patch = cv2.resize(patch, (min_size,min_size), interpolation = inter)
 
-        saveImage(patch, args.output_folder,filename+'-'+str(i))
+            saveImage(patch, args.output_folder,fn+'-'+str(i))
+    else:
+        print('image is exact size: ' + fn)
+        saveImage(img, args.output_folder,fn)
 
 def parse_args():
     desc = "Tools to crop random patches for images" 
