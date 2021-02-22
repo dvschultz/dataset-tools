@@ -146,18 +146,26 @@ def main():
 
 			img0 = lpips.im2tensor(lpips.load_image(args.start_img))
 			
+			if not os.path.exists(args.output_folder):
+				os.makedirs(args.output_folder)
+
 			if(args.use_gpu):
 				loss_fn.cuda()
 				img0 = img0.cuda()
 
 			for filename in files:
-				img1 = lpips.im2tensor(lpips.load_image(os.path.join(root, filename)))
+				file_path = os.path.join(root, filename)
+				img1 = lpips.im2tensor(lpips.load_image(file_path))
 				
 				if(args.use_gpu):
 					img1 = img1.cuda()
 
 				dist01 = loss_fn.forward(img0,img1)
 				print('Distance: %.3f'%dist01)
+
+				if(dist01 <= args.max_dist):
+					new_path = os.path.join(args.output_folder, filename)
+					shutil.copy2(file_path,new_path)
 
 
 			continue
