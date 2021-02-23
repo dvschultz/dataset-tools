@@ -107,14 +107,6 @@ def gray_color(img,filename):
 	else:
 		saveImage(img,gray_path,filename)
 
-	# if(std[1] <= 30.0):
-	# 	saveImage(img,gray_path,filename)
-	# else:
-	# 	if (mean[1] > std[1]) or (mean[1] > 50.0):
-	# 		saveImage(img,gray_path,filename)
-	# 	else:
-	# 		saveImage(img,color_path,filename)
-
 def sort(img,filename):
 	make_path1 = args.output_folder + "yes/"
 	make_path2 = args.output_folder + "no/"
