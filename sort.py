@@ -62,7 +62,13 @@ def parse_args():
 	args = parser.parse_args()
 	return args
 
-
+def saveImage(img,path,filename):
+    if(args.file_extension == "png"):
+        new_file = os.path.splitext(filename)[0] + ".png"
+        cv2.imwrite(os.path.join(path, new_file), img, [cv2.IMWRITE_PNG_COMPRESSION, 0])
+    elif(args.file_extension == "jpg"):
+        new_file = os.path.splitext(filename)[0] + ".jpg"
+        cv2.imwrite(os.path.join(path, new_file), img, [cv2.IMWRITE_JPEG_QUALITY, 90])
 
 def exclude(img,filename):
 	make_path = args.output_folder + "exclude_"+str(args.min_size)+"-"+str(args.max_size)+"/"
@@ -79,6 +85,35 @@ def exclude(img,filename):
 		else:
 			new_file = os.path.splitext(filename)[0] + ".jpg"
 			cv2.imwrite(os.path.join(make_path, new_file), img, [cv2.IMWRITE_JPEG_QUALITY, 90])
+
+def gray_color(img,filename):
+	gray_path = args.output_folder + "gray/"
+	color_path = args.output_folder + "color/"
+	if not os.path.exists(gray_path):
+		os.makedirs(gray_path)
+	if not os.path.exists(color_path):
+		os.makedirs(color_path)
+
+	hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+	mean, std = cv2.meanStdDev(hsv)
+	if(args.verbose): print(mean[1],std[1])
+
+	if(mean[1] >= 44.0):
+		saveImage(img,color_path,filename)
+	elif(mean[1] <= 10.0): 
+		saveImage(img,gray_path,filename)
+	elif(std[1] >= 30.0):
+		saveImage(img,color_path,filename)
+	else:
+		saveImage(img,gray_path,filename)
+
+	# if(std[1] <= 30.0):
+	# 	saveImage(img,gray_path,filename)
+	# else:
+	# 	if (mean[1] > std[1]) or (mean[1] > 50.0):
+	# 		saveImage(img,gray_path,filename)
+	# 	else:
+	# 		saveImage(img,color_path,filename)
 
 def sort(img,filename):
 	make_path1 = args.output_folder + "yes/"
@@ -115,9 +150,10 @@ def sort(img,filename):
 # def lpipssort(img,filename):
 
 def processImage(img,filename,tag=None):
-
 	if args.process_type == "exclude":	
 		exclude(img,filename)
+	if args.process_type == "gray_color":	
+		gray_color(img,filename)
 	if args.process_type == "sort":	
 		sort(img,filename)
 	if args.process_type == "tagsort":	
@@ -131,7 +167,19 @@ def main():
 	count = int(0)
 	inter = cv2.INTER_CUBIC
 	os.environ['OPENCV_IO_ENABLE_JASPER']= "true"
-	print('processing images...')
+
+	if os.path.isdir(args.input_folder):
+		print("Processing folder: " + args.input_folder)
+	elif os.path.isfile(args.input_folder):
+		img = cv2.imread(args.input_folder)
+		filename = args.input_folder.split('/')[-1]
+
+		if hasattr(img, 'copy'):
+			if(args.verbose): print('processing image: ' + filename)  
+			processImage(img,os.path.splitext(filename)[0])
+	else:
+		print("Not a working input_folder path: " + args.input_folder)
+		return;
 
 	for root, subdirs, files in os.walk(args.input_folder):
 		if(args.verbose): print('--\nroot = ' + root)
