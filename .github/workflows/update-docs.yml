@@ -1,0 +1,26 @@
+name: "Auto Updating docs.md"
+on:
+  push:
+    branches:
+      - main
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v1
+    - name: "Generate docs.md from .github/scripts/generate-docs.py"
+      run: python ./.github/scripts/test.py
+    - name: "committing changes"
+      run: |
+        git remote set-url origin ${{ secrets.SSH }}
+        git config --global user.email ${{ secrets.GIT_EMAIL }}
+        git config --global user.name "${{ secrets.GIT_NAME }}"
+        cat ~/.gitconfig
+        git status
+        git add README.md
+        git commit -m "Automatically updating docs.md"
+    - name: "push change"
+      uses: ad-m/github-push-action@master
+      with:
+        github_token: ${{ secrets.GH_TOKEN }}
+        force: true

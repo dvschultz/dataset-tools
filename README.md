@@ -1,7 +1,7 @@
 # dataset-tools
 Tools for quickly normalizing image datasets for machine learning. I maintain a series of video tutorials on normalizing image datasets—many utilizing this set of scripts—on [my YouTube page](https://www.youtube.com/playlist?list=PLWuCzxqIpJs9v81cWpRC7nm94eTMtohHq).
 
-# Installation
+## Installation
 Note: If you’re installing this on a Mac, I highly recommend installing it alongside Anaconda. A video tutorial is available [here](https://www.youtube.com/watch?v=2zgki1oeRkg).
 ```
 git clone https://github.com/dvschultz/dataset-tools.git
@@ -9,13 +9,17 @@ cd dataset-tools
 pip install -r requirements.txt
 ```
 
-# Basic Usage
+## Basic Usage
 ```
 python dataset-tools.py --input_folder path/to/input/ --output_folder path/to/output/
 ```
 
-# All Options
-## dataset_tools.py
+## Documentation
+
+You can view auto generated documentation in [docs.md](./docs.md)
+
+## All Options
+### dataset_tools.py
 * `--verbose`: Print progress to console.
 * `--input_folder`: Directory path to the inputs folder. *Default*: `./input/`
 * `--output_folder`: Directory path to the outputs folder. *Default*: `./output/`
@@ -35,7 +39,7 @@ python dataset-tools.py --input_folder path/to/input/ --output_folder path/to/ou
 * `--shift_x`: x (Left to right) amount to shift in pixels; negative values will move it left, positive will move it right; use with `--process_type crop`
 * `--file_extension`: file format to output *Options*: `jpg`,`png` *Default*: `png`
 
-## dedupe.py
+### dedupe.py
 Remove duplicate images from your dataset
 
 * `--absolute`: Use absolute matching. *Default*
@@ -46,13 +50,13 @@ Remove duplicate images from your dataset
 * `--relative`: Use relative matching.
 * `--verbose`: Print progress to console.
 
-### Basic usage (absolute)
+#### Basic usage (absolute)
 `python dedupe.py --input_folder path/to/input/ --output_folder path/to/output/`
 
-### Basic usage (relative)
+#### Basic usage (relative)
 `python dedupe.py --input_folder path/to/input/ --output_folder path/to/output/ --relative`
 
-## multicrop.py
+### multicrop.py
 This tool produces randomized multi-scale crops. A video tutorial is [here](https://youtu.be/0yj8B2x62EA)
 
 * `--input_folder`: Directory path to the inputs folder. *Default*: `./input/`
@@ -64,7 +68,7 @@ This tool produces randomized multi-scale crops. A video tutorial is [here](http
 * `--no_resize`: If set the crops will not be resized. *Default*: `False`
 * `--verbose`: Print progress to console.
 
-## sort.py
+### sort.py
 * `--file_extension`: file format to output *Options*: `jpg`,`png` *Default*: `png`
 * `--verbose`: Print progress to console.
 * `--input_folder`: Directory path to the inputs folder. *Default*: `./input/`
@@ -75,6 +79,6 @@ This tool produces randomized multi-scale crops. A video tutorial is [here](http
 * `--min_ratio`: Ratio of image (height/width). *Default*: `1.0`
 * `--exact`: Match to exact specs. Use `--min_size` for shorter dimension, `--max_size` for longer dimension
 
-## rotate.py
+### rotate.py
 
 
