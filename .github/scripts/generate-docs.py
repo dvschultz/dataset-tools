@@ -24,7 +24,7 @@ def main():
         capture = subprocess.run(['python', file, '--help'], stdout=subprocess.PIPE)
 
         out_file.write('## ' + file + '\n')
-        out_file.write('```bash\n')
+        out_file.write('```\n')
         out_file.write(capture.stdout.decode('UTF-8'))
         out_file.write('```\n')
 

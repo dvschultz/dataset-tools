@@ -1,7 +1,7 @@
 # Generated Docs 📜
 ⚠️ Do not modify this file because it will be overwritten automatically
 ## convert.py
-```bash
+```
 usage: convert.py [-h] [-i INPUT_FOLDER] [-o OUTPUT_FOLDER]
                   [--file_extension FILE_EXTENSION] [--verbose]
 
@@ -20,7 +20,7 @@ optional arguments:
   --verbose             Print progress to console.
 ```
 ## list-remove.py
-```bash
+```
 usage: list-remove.py [-h] [--verbose] [-i INPUT_FOLDER] [-o OUTPUT_FOLDER]
                       [-of ORDERED_FILE] [--file_extension FILE_EXTENSION]
 
@@ -42,7 +42,7 @@ optional arguments:
                         file extension ["png","jpg"] (default: png)
 ```
 ## obj_detect_cropper.py
-```bash
+```
 usage: obj_detect_cropper.py [-h] [--verbose] [--input_folder INPUT_FOLDER]
                              [--output_folder OUTPUT_FOLDER]
                              [--bounds_file_path BOUNDS_FILE_PATH]
@@ -77,7 +77,7 @@ optional arguments:
                         (default: 0.5)
 ```
 ## multi-copy.py
-```bash
+```
 usage: multi-copy.py [-h] [--verbose] [--input_img INPUT_IMG]
                      [--output_folder OUTPUT_FOLDER] [--start START]
                      [--end END] [--file_extension FILE_EXTENSION]
@@ -100,7 +100,7 @@ optional arguments:
                         ["png","jpg"] (default: png)
 ```
 ## rotate.py
-```bash
+```
 usage: rotate.py [-h] [--verbose] [--input_folder INPUT_FOLDER]
                  [--output_folder OUTPUT_FOLDER] [--process_type PROCESS_TYPE]
                  [--max_size MAX_SIZE] [--scale SCALE] [--mirror]
@@ -130,7 +130,7 @@ optional arguments:
                         ["png","jpg"] (default: png)
 ```
 ## psd.py
-```bash
+```
 usage: psd.py [-h] [-i INPUT_FOLDER] [-o OUTPUT_FOLDER] [-v]
 
 Tools to normalize an image dataset
@@ -146,7 +146,7 @@ optional arguments:
   -v, --verbose         Print progress to console.
 ```
 ## multicrop.py
-```bash
+```
 usage: multicrop.py [-h] [-f FILE_EXTENSION] [--how_many HOW_MANY]
                     [-i INPUT_FOLDER] [--min_size MIN_SIZE]
                     [--max_size MAX_SIZE] [--no_resize] [-o OUTPUT_FOLDER]
@@ -176,7 +176,7 @@ optional arguments:
   --verbose             Print progress to console.
 ```
 ## dedupe.py
-```bash
+```
 usage: dedupe.py [-h] [--verbose] [--input_folder INPUT_FOLDER]
                  [--output_folder OUTPUT_FOLDER] [--process_type PROCESS_TYPE]
                  [--file_extension FILE_EXTENSION] [--avg_match AVG_MATCH]
@@ -204,7 +204,7 @@ optional arguments:
   --relative
 ```
 ## crop_bounds.py
-```bash
+```
 usage: crop_bounds.py [-h] [--blur_size BLUR_SIZE] [--dilate_iter DILATE_ITER]
                       [--erode_iter ERODE_ITER] [-i INPUT_FOLDER]
                       [--keep_original] [--max_angle MAX_ANGLE]
@@ -283,7 +283,7 @@ optional arguments:
   --verbose             Print progress to console.
 ```
 ## sort.py
-```bash
+```
 usage: sort.py [-h] [--verbose] [--exact] [-i INPUT_FOLDER] [-o OUTPUT_FOLDER]
                [-p PROCESS_TYPE] [--max_size MAX_SIZE] [--max_dist MAX_DIST]
                [--min_size MIN_SIZE] [--min_ratio MIN_RATIO]
@@ -319,7 +319,7 @@ optional arguments:
   --use_gpu             use GPU (for lpips process)
 ```
 ## dataset-tools.py
-```bash
+```
 usage: dataset-tools.py [-h] [--verbose] [--force_max] [-i INPUT_FOLDER]
                         [-o OUTPUT_FOLDER] [-p PROCESS_TYPE]
                         [--blur_type BLUR_TYPE] [--blur_amount BLUR_AMOUNT]
