@@ -74,7 +74,7 @@ def process_image(img, filename):
     detected = max(counts)
     if(args.verbose): print('\t\tdetected: ' + str(detected))
 
-    if ((args.max != None and detected <= args.max) and (args.min != None and detected >= args.min)):
+    if ((args.max == None or (args.max != None and detected <= args.max)) and (args.min == None or (args.min != None and detected >= args.min))):
         save_to = args.output_folder + '/' + str(detected)
         if(args.verbose): print('\t\tsaving to: ' + save_to)
         if not os.path.exists(save_to):
