@@ -81,8 +81,6 @@ def process_image(img, filename):
             os.makedirs(save_to)
         saveImage(img, save_to, filename)
 
-
-
 def main():
     global args
     args = parse_args()
