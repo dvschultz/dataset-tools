@@ -50,6 +50,10 @@ def parse_args():
 		default='png',
 		help='file type ["png","jpg"] (default: %(default)s)')
 
+	parser.add_argument('--skip_tags', type=str, 
+        default=None,
+        help='comma separated color tags (for Mac only) (default: %(default)s)')
+
 	parser.add_argument('--start_img', type=str,
 		help='image for comparison (for lpips process)')
 
@@ -211,6 +215,8 @@ def main():
 			continue
 
 		for filename in files:
+			skipped = False
+
 			file_path = os.path.join(root, filename)
 			if(args.verbose): print('\t- file %s (full path: %s)' % (filename, file_path))
 
@@ -230,12 +236,29 @@ def main():
 						shutil.copy2(file_path,new_path)
 
 				continue
-			
-			img = cv2.imread(file_path)
 
-			if hasattr(img, 'copy'):
-				processImage(img,filename)
-				count = count + int(2)
+			if(args.skip_tags != None):
+				import mac_tag
+
+				tags = [str(item) for item in args.skip_tags.split(',')]
+				# tags = mac_tag.get(file_path)
+				# print(tags)
+				for tag in tags:
+					matches = mac_tag.match(tag,file_path)
+					if(file_path in matches):
+						print('skipping file: ' + filename)
+						new_path = os.path.join(args.output_folder, filename)
+						shutil.copy2(file_path,new_path)
+						mac_tag.add([tag],[new_path])
+						skipped = True
+						continue
+
+			if not skipped:
+				img = cv2.imread(file_path)
+
+				if hasattr(img, 'copy'):
+					processImage(img,filename)
+					count = count + int(2)
 
 
 if __name__ == "__main__":
