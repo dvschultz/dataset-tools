@@ -81,6 +81,8 @@ This tool produces randomized multi-scale crops. A video tutorial is [here](http
 
 
 ### interactive.py
+[YouTube Demo](https://www.youtube.com/watch?v=tUzUJNrSAu8)
+
 ### rotate.py
 
 
