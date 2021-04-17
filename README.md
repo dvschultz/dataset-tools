@@ -79,6 +79,8 @@ This tool produces randomized multi-scale crops. A video tutorial is [here](http
 * `--min_ratio`: Ratio of image (height/width). *Default*: `1.0`
 * `--exact`: Match to exact specs. Use `--min_size` for shorter dimension, `--max_size` for longer dimension
 
+
+### interactive.py
 ### rotate.py
 
 
