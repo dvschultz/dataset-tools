@@ -28,7 +28,7 @@ def parse_args():
 
 	parser.add_argument('-p','--process_type', type=str,
 		default='exclude',
-		help='Process to use. ["exclude","sort","tagsort","lpips","alpha"] (default: %(default)s)')
+		help='Process to use. ["exclude","sort","tagsort","lpips","channels"] (default: %(default)s)')
 
 	parser.add_argument('--max_size', type=int, 
 		default=2048,
