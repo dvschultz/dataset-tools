@@ -28,7 +28,7 @@ def parse_args():
 
 	parser.add_argument('-p','--process_type', type=str,
 		default='exclude',
-		help='Process to use. ["exclude","sort","tagsort","lpips"] (default: %(default)s)')
+		help='Process to use. ["exclude","sort","tagsort","lpips","alpha"] (default: %(default)s)')
 
 	parser.add_argument('--max_size', type=int, 
 		default=2048,
@@ -183,6 +183,7 @@ def main():
 		for subdir in subdirs:
 			if(args.verbose): print('\t- subdirectory ' + subdir)
 
+		# sort using LPIPS
 		if(args.process_type == "lpips"):
 			import lpips
 
@@ -211,54 +212,91 @@ def main():
 					new_path = os.path.join(args.output_folder, filename)
 					shutil.copy2(file_path,new_path)
 
+			continue
+
+		# sort by channel count
+		elif(args.process_type=='channels'):
+			if not os.path.exists(args.output_folder):
+				os.makedirs(args.output_folder)
+
+			gray_path = os.path.join(args.output_folder,'gray')
+			if not os.path.exists(gray_path):
+				os.makedirs(gray_path)
+
+			rgb_path = os.path.join(args.output_folder,'rgb')
+			if not os.path.exists(rgb_path):
+				os.makedirs(rgb_path)
+
+			rgba_path = os.path.join(args.output_folder,'rgba')
+			if not os.path.exists(rgba_path):
+				os.makedirs(rgba_path)
+
+			for filename in files:
+				file_path = os.path.join(root, filename)
+				img = cv2.imread(file_path, cv2.IMREAD_UNCHANGED)
+
+				if hasattr(img, 'copy'):
+					print(img.shape[-1])
+					
+					if(img.shape[-1] <= 3): 
+						new_path = os.path.join(rgb_path, filename)
+						shutil.copy2(file_path,new_path)
+					elif(img.shape[-1] == 4):
+						new_path = os.path.join(rgba_path, filename)
+						shutil.copy2(file_path,new_path)
+					else:
+						new_path = os.path.join(gray_path, filename)
+						shutil.copy2(file_path,new_path)
 
 			continue
 
-		for filename in files:
-			skipped = False
+        # all other tools
+		else:
+			for filename in files:
+				skipped = False
 
-			file_path = os.path.join(root, filename)
-			if(args.verbose): print('\t- file %s (full path: %s)' % (filename, file_path))
+				file_path = os.path.join(root, filename)
+				if(args.verbose): print('\t- file %s (full path: %s)' % (filename, file_path))
 
-			if(args.process_type == "tagsort"):
-				import mac_tag
+				if(args.process_type == "tagsort"):
+					import mac_tag
 
-				tags = mac_tag.get(file_path)
-				if(len(tags[file_path])>0):
-					ts = tags[file_path]
-					for t in ts:
-						tagpath = os.path.join(args.output_folder, t)
-						
-						if not os.path.exists(tagpath):
-							os.makedirs(tagpath)
-						
-						new_path = os.path.join(tagpath, filename)
-						shutil.copy2(file_path,new_path)
+					tags = mac_tag.get(file_path)
+					if(len(tags[file_path])>0):
+						ts = tags[file_path]
+						for t in ts:
+							tagpath = os.path.join(args.output_folder, t)
+							
+							if not os.path.exists(tagpath):
+								os.makedirs(tagpath)
+							
+							new_path = os.path.join(tagpath, filename)
+							shutil.copy2(file_path,new_path)
 
-				continue
+					continue
 
-			if(args.skip_tags != None):
-				import mac_tag
+				if(args.skip_tags != None):
+					import mac_tag
 
-				tags = [str(item) for item in args.skip_tags.split(',')]
-				# tags = mac_tag.get(file_path)
-				# print(tags)
-				for tag in tags:
-					matches = mac_tag.match(tag,file_path)
-					if(file_path in matches):
-						print('skipping file: ' + filename)
-						new_path = os.path.join(args.output_folder, filename)
-						shutil.copy2(file_path,new_path)
-						mac_tag.add([tag],[new_path])
-						skipped = True
-						continue
+					tags = [str(item) for item in args.skip_tags.split(',')]
+					# tags = mac_tag.get(file_path)
+					# print(tags)
+					for tag in tags:
+						matches = mac_tag.match(tag,file_path)
+						if(file_path in matches):
+							print('skipping file: ' + filename)
+							new_path = os.path.join(args.output_folder, filename)
+							shutil.copy2(file_path,new_path)
+							mac_tag.add([tag],[new_path])
+							skipped = True
+							continue
 
-			if not skipped:
-				img = cv2.imread(file_path)
+				if not skipped:
+					img = cv2.imread(file_path)
 
-				if hasattr(img, 'copy'):
-					processImage(img,filename)
-					count = count + int(2)
+					if hasattr(img, 'copy'):
+						processImage(img,filename)
+						count = count + int(2)
 
 
 if __name__ == "__main__":
