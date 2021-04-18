@@ -14,6 +14,7 @@ def parse_args():
 	parser = argparse.ArgumentParser(description=desc)
 
 	parser.add_argument('--verbose', action='store_true',
+		default= False,
 		help='Print progress to console.')
 
 	parser.add_argument('--input_folder', type=str,
@@ -218,7 +219,7 @@ def main():
 	elif args.file_format == "yolo_v5":
 		for root, subdirs, files in os.walk(args.bounds_file_path):
 			files = [f for f in files if not f[0] == '.']
-			for filename in files:if(args.verbose): 
+			for filename in files:
 				file_path = os.path.join(root, filename)
 				if(args.verbose): print('\t- file %s (full path: %s)' % (filename, file_path))
 
