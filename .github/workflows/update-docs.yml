@@ -9,7 +9,7 @@ jobs:
     steps:
     - uses: actions/checkout@v1
     - name: "Generate docs.md from .github/scripts/generate-docs.py"
-      run: python ./.github/scripts/test.py
+      run: python ./.github/scripts/generate-docs.py
     - name: "committing changes"
       run: |
         git remote set-url origin ${{ secrets.SSH }}
