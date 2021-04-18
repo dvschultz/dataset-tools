@@ -6,8 +6,6 @@ import cv2
 import random
 import shutil
 
-# print(cv2.__version__)
-
 def parse_args():
 	desc = "Tools to normalize an image dataset" 
 	parser = argparse.ArgumentParser(description=desc)
