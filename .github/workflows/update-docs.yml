@@ -17,7 +17,7 @@ jobs:
         git config --global user.name "${{ secrets.GIT_NAME }}"
         cat ~/.gitconfig
         git status
-        git add README.md
+        git add docs.md
         git commit -m "Automatically updating docs.md"
     - name: "push change"
       uses: ad-m/github-push-action@master
