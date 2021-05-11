@@ -20,6 +20,9 @@ def parse_args():
     parser.add_argument('--min_size', type=int, 
         default=1024,
         help='Minimum width or height of the cropped images. (default: %(default)s)')
+    parser.add_argument('-m','--mode', type=str,
+        default='center',
+        help='Mode type. Options: center, bilateral. (default: %(default)s)')
     parser.add_argument('-o','--output_folder', type=str,
         default='./output/',
         help='Directory path to the outputs folder. (default: %(default)s)')
@@ -79,7 +82,7 @@ def image_resize(image, width = None, height = None, max = None):
     return resized
 
 def saveImage(img,path,filename):
-    print('got: ', filename)
+    # print('got: ', filename)
     if(args.file_extension == "png"):
         new_file = os.path.splitext(filename)[0] + ".png"
         cv2.imwrite(os.path.join(path, new_file), img, [cv2.IMWRITE_PNG_COMPRESSION, 0])
@@ -88,27 +91,46 @@ def saveImage(img,path,filename):
         cv2.imwrite(os.path.join(path, new_file), img, [cv2.IMWRITE_JPEG_QUALITY, 90])
 
 class Context:
-    def __init__(self,imgs,fs):
+    def __init__(self,imgs,fs,mode):
         self.start = False
+        self.clicks = 0
+        self.mode = mode
         self.counter = 0
         self.i = 0
         self.clean_imgs = copy.deepcopy(imgs)
         self.drawn_imgs = imgs
         self.fs = fs.copy()
         self.xy = (-1,-1)
+        self.b_xy = []
         self.timer = 0
         self.temp_img = self.drawn_imgs[0]
+        self.a = 0
 
     def reset(self):
         self.counter = self.counter + 1
         self.start = False
         self.xy = (-1,-1)
         self.timer = 0
+        self.b_xy = []
+        self.a = 0
 
     def reset_xy(self):
         print('reset xy')
+        self.start = False
         self.xy = (-1,-1)
         self.timer = 0
+        self.b_xy = []
+
+    def switch_mode(self):
+        if(self.mode == "center"):
+            self.mode = "bilateral"
+        elif(self.mode == "bilateral"):
+            self.mode = "center"
+        else:
+            print("mode not set")
+
+        self.reset_xy
+        print(self.mode)
 
     def check_box(self,d,c0,c1):
         if(d < int(args.min_size/2)):
@@ -118,8 +140,40 @@ class Context:
         else:
             return (255,0,0)
 
+    def draw_rotated_box(self,image,d,color):
+        # cv2.line(self.temp_img,(self.b_xy[0]),(self.b_xy[1]),blue,3)
+        # cv2.circle(self.temp_img,self.xy,d,color,3)
+
+        pt0 = (int(self.xy[0]-d), int(self.xy[1]-d)) #top left
+        pt1 = (int(self.xy[0]+d), int(self.xy[1]-d)) #top right
+        pt2 = (int(self.xy[0]+d), int(self.xy[1]+d)) #bottom right
+        pt3 = (int(self.xy[0]-d), int(self.xy[1]+d)) #bottom left
+        
+        theta = (self.a * np.pi / 180)
+        rotated_x = np.cos(theta) * (pt0[0] - self.xy[0]) - np.sin(theta) * (pt0[1] - self.xy[1]) + self.xy[0]
+        rotated_y = np.sin(theta) * (pt0[0] - self.xy[0]) + np.cos(theta) * (pt0[1] - self.xy[1]) + self.xy[1]
+        point_0 = (int(rotated_x), int(rotated_y))
+
+        # Point 1
+        rotated_x = np.cos(theta) * (pt1[0] - self.xy[0]) - np.sin(theta) * (pt1[1] - self.xy[1]) + self.xy[0]
+        rotated_y = np.sin(theta) * (pt1[0] - self.xy[0]) + np.cos(theta) * (pt1[1] - self.xy[1]) + self.xy[1]
+        point_1 = (int(rotated_x), int(rotated_y))
+
+        # Point 2
+        rotated_x = np.cos(theta) * (pt2[0] - self.xy[0]) - np.sin(theta) * (pt2[1] - self.xy[1]) + self.xy[0]
+        rotated_y = np.sin(theta) * (pt2[0] - self.xy[0]) + np.cos(theta) * (pt2[1] - self.xy[1]) + self.xy[1]
+        point_2 = (int(rotated_x), int(rotated_y))
+
+        # Point 3
+        rotated_x = np.cos(theta) * (pt3[0] - self.xy[0]) - np.sin(theta) * (pt3[1] - self.xy[1]) + self.xy[0]
+        rotated_y = np.sin(theta) * (pt3[0] - self.xy[0]) + np.cos(theta) * (pt3[1] - self.xy[1]) + self.xy[1]
+        point_3 = (int(rotated_x), int(rotated_y))
+
+        pts = np.array([point_0, point_1, point_2, point_3], np.int32)
+        cv2.polylines(image, [pts], True, color, 6)
+
     def pad_images(self, pad):
-        print('here, pad images: ', pad)
+
         green = (0,255,0)
         for i, drawn_img in enumerate(self.drawn_imgs):
             self.drawn_imgs[i] = cv2.copyMakeBorder(drawn_img, pad, pad, pad, pad, cv2.BORDER_CONSTANT, value=green)
@@ -134,14 +188,91 @@ class Context:
             cv2.line(drawn_img,(0,pt),(w,pt),red,4) #top
             cv2.line(drawn_img,(0,h-pt),(w,h-pt),red,4) #bottom
 
+    def make_crop(self,d):
+        img = self.clean_imgs[self.i]
+
+        if(self.a != 0):
+            rot_mat = cv2.getRotationMatrix2D(self.xy, self.a, 1.0)
+            img = cv2.warpAffine(img, rot_mat, img.shape[1::-1], flags=cv2.INTER_LINEAR)
+
+        y0 = self.xy[1]
+        x0 = self.xy[0]
+        c0 = (self.xy[0]-d,self.xy[1]-d)
+        c1 = (self.xy[0]+d,self.xy[1]+d)
+        crop = img[y0-d:y0+d,x0-d:x0+d]
+        # print(min(crop.shape[:2]))
+
+        if(min(crop.shape[:2]) >= args.min_size):
+            fname = self.fs[self.i].split('.')[0] + '_' + str(self.counter)
+
+            #post processing happens here
+            if(args.post=='resize'):
+                crop = image_resize(crop, max=args.min_size)
+
+            saveImage(crop,args.output_folder,fname)
+
+            # cv2.circle(self.drawn_imgs[self.i],self.xy,d,(255,0,0),10)
+            if(self.a == 0):
+                cv2.rectangle(self.drawn_imgs[self.i],c0,c1,(0,255,0),10)
+            else:
+                self.draw_rotated_box(self.drawn_imgs[self.i],d,(0,255,0))
+        else:
+            if(self.a == 0):
+                cv2.rectangle(self.drawn_imgs[self.i],c0,c1,(0,0,255),10)
+            else:
+                self.draw_rotated_box(self.drawn_imgs[self.i],d,(0,0,255))
+    
     def mouse(self,event,x,y,flags,param):
+        if(self.mode == "center"):
+            self.center_mouse(event,x,y,flags,param)
+        elif(self.mode == "bilateral"):
+            self.bilateral_mouse(event,x,y,flags,param)
+
+    def bilateral_mouse(self,event,x,y,flags,param):
+        red = (0,0,255)
+        blue = (255,0,0)
+        if(self.start):
+            self.temp_img = self.drawn_imgs[self.i].copy()
+            if(self.clicks == 1):
+                cv2.line(self.temp_img,(self.b_xy[0]),(x,y),blue,3)
+            elif(self.clicks == 2):
+                cv2.line(self.temp_img,(self.b_xy[0]),(self.b_xy[1]),blue,3)
+                #cv2.circle(self.temp_img,self.xy,5,blue,3) #midpoint
+                d = int(np.abs(np.hypot(x - self.xy[0], y - self.xy[1])))
+                c0 = (self.xy[0]-d,self.xy[1]-d)
+                c1 = (self.xy[0]+d,self.xy[1]+d)
+                color = self.check_box(d,c0,c1)
+                self.draw_rotated_box(self.temp_img,d,color)
+
+        if event==4: #CLICK UP
+            if self.start == False:
+                self.start = not self.start
+                self.b_xy.append((x,y))
+                self.clicks = 1
+                # print('set x,y: ', self.b_xy[0])
+            elif(self.clicks == 1):
+                self.b_xy.append((x,y))
+                # print('set x,y: ', self.b_xy[1])
+                self.clicks = 2
+                dx = self.b_xy[1][0] - self.b_xy[0][0]
+                dy = self.b_xy[1][1] - self.b_xy[0][1]
+                self.a = (np.arctan2(dy,dx)* 180. / np.pi) - 90. # why sub 90?
+                self.xy = ( int((self.b_xy[0][0] + self.b_xy[1][0])/2) , int((self.b_xy[0][1] + self.b_xy[1][1])/2) )
+                # print(np.arctan2(dy,dx) * 180. / np.pi)
+                # print(self.xy)
+            else:
+                # print('lets make a box')
+                self.make_crop(d)
+                self.reset()
+
+    def center_mouse(self,event,x,y,flags,param):
         #print(event)
         if(self.start):
             self.temp_img = self.drawn_imgs[self.i].copy()
             d = int(np.abs(np.hypot(x - self.xy[0], y - self.xy[1])))
             c0 = (self.xy[0]-d,self.xy[1]-d)
             c1 = (self.xy[0]+d,self.xy[1]+d)
-            print(min(min(c0,c1)))
+            # print(min(min(c0,c1)))
 
             color = self.check_box(d,c0,c1)
             cv2.rectangle(self.temp_img,c0,c1,color,6)
@@ -151,43 +282,22 @@ class Context:
             if self.start == False:
                 self.start = not self.start
                 self.xy = (x,y)
-                print('set x,y: ', self.xy)
+                # print('set x,y: ', self.xy)
             else:
-                print(self.xy)
-                print(x,y)
-
+                # print(self.xy)
+                # print(x,y)
                 d = int(np.abs(np.hypot(x - self.xy[0], y - self.xy[1])))
                 if(d < int(args.min_size/2)): d = int(args.min_size/2)
-                y0 = self.xy[1]
-                x0 = self.xy[0]
-                img = self.clean_imgs[self.i]
-                c0 = (self.xy[0]-d,self.xy[1]-d)
-                c1 = (self.xy[0]+d,self.xy[1]+d)
-                crop = img[y0-d:y0+d,x0-d:x0+d]
-                print(min(crop.shape[:2]))
-
-                if(min(crop.shape[:2]) >= args.min_size):
-                    fname = self.fs[self.i].split('.')[0] + '_' + str(self.counter)
-
-                    #post processing happens here
-                    if(args.post=='resize'):
-                        crop = image_resize(crop, max=args.min_size)
-
-                    saveImage(crop,args.output_folder,fname)
-
-                    # cv2.circle(self.drawn_imgs[self.i],self.xy,d,(255,0,0),10)
-                    cv2.rectangle(self.drawn_imgs[self.i],c0,c1,(0,255,0),10)
-                else:
-                    cv2.rectangle(self.drawn_imgs[self.i],c0,c1,(0,0,255),10)
+                self.make_crop(d)
 
 
                 self.reset()
 
 
-def interactive(imgs,fs):
+def interactive(imgs,fs,mode):
     cv2.namedWindow('image',cv2.WINDOW_NORMAL)
 
-    c = Context(imgs,fs)
+    c = Context(imgs,fs,mode)
 
     cv2.imshow('image',c.drawn_imgs[c.i])
     cv2.resizeWindow('image', 1200,800)
@@ -229,7 +339,8 @@ def interactive(imgs,fs):
             c.reset_xy()
             c.temp_img = c.drawn_imgs[c.i]
             print('prev image: ', fs[c.i])
-            
+        elif(k == 109):
+            c.switch_mode()
         else:
             print('pressed: ', k)
 
@@ -274,7 +385,7 @@ def main():
                 fs.append(filename)
                 imgs.append(img)  
 
-    interactive(imgs,fs)
+    interactive(imgs,fs,args.mode)
 	
 
 if __name__ == "__main__":
