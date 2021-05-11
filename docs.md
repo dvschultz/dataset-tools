@@ -1,21 +1,24 @@
 # Generated Docs 📜
 ⚠️ Do not modify this file because it will be overwritten automatically
+## dataset-tools.py
+```
+```
+## interactive.py
+```
+```
+## obj_detect_cropper.py
+```
+```
+## facesort.py
+```
+```
 ## crop_bounds.py
 ```
 ```
 ## multicrop.py
 ```
 ```
-## facesort.py
-```
-```
-## convert.py
-```
-```
-## sort.py
-```
-```
-## dataset-tools.py
+## rotate.py
 ```
 ```
 ## list-remove.py
@@ -40,21 +43,18 @@ optional arguments:
   --file_extension FILE_EXTENSION
                         file extension ["png","jpg"] (default: png)
 ```
-## rotate.py
+## psd.py
+```
+```
+## convert.py
+```
+```
+## sort.py
 ```
 ```
 ## dedupe.py
 ```
 ```
-## interactive.py
-```
-```
 ## multi-copy.py
-```
-```
-## obj_detect_cropper.py
-```
-```
-## psd.py
 ```
 ```
