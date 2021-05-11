@@ -256,7 +256,9 @@ class Context:
                 self.clicks = 2
                 dx = self.b_xy[1][0] - self.b_xy[0][0]
                 dy = self.b_xy[1][1] - self.b_xy[0][1]
-                self.a = (np.arctan2(dy,dx)* 180. / np.pi) - 90. # why sub 90?
+
+                # note: this assumes your first click is the bottom, the next is the top
+                self.a = (np.arctan2(dy,dx)* 180. / np.pi) + 90. # why add 90? 
                 self.xy = ( int((self.b_xy[0][0] + self.b_xy[1][0])/2) , int((self.b_xy[0][1] + self.b_xy[1][1])/2) )
                 # print(np.arctan2(dy,dx) * 180. / np.pi)
                 # print(self.xy)
@@ -325,7 +327,7 @@ def interactive(imgs,fs,mode):
             cv2.destroyAllWindows()
         elif(k==124 or k==32): #space bar
             c.i+=1
-            print(c.i)
+            # print(c.i)
             print('next image: ', c.fs[c.i])
             c.reset_xy()
             c.temp_img = c.drawn_imgs[c.i]
