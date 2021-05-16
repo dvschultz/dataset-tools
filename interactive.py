@@ -31,6 +31,9 @@ def parse_args():
     parser.add_argument('--padding', type=int, 
         default=0,
         help='Add green borders to image. (default: %(default)s)')
+    parser.add_argument('--outpaint', type=int, 
+        default=0, 
+        help='Extend image with data from neighboring pixels. (default: %(default)s)')
     parser.add_argument('--post', type=str, 
         default=None,
         help='post processing: None, resize (default: %(default)s)')
@@ -81,6 +84,27 @@ def image_resize(image, width = None, height = None, max = None):
     # return the resized image
     return resized
 
+def outpaint_image(in_img, pad_sz):
+
+    in_img_h, in_img_w, channels = in_img.shape
+
+    out_img_h = in_img_h + (pad_sz * 2)
+    out_img_w = in_img_w + (pad_sz * 2)
+
+    mask = np.zeros((out_img_h, out_img_w ,1), np.uint8)
+
+    fill_color = (255,255,255)
+
+    out_img = cv2.copyMakeBorder(in_img, pad_sz, pad_sz, pad_sz, pad_sz, cv2.BORDER_CONSTANT, value=fill_color)
+    
+    mask = cv2.rectangle(mask,(0,0),(pad_sz-1, out_img_h-1),(255),-1)
+    mask = cv2.rectangle(mask,(0,0),(out_img_w-1, pad_sz-1),(255),-1)
+    mask = cv2.rectangle(mask,(0, out_img_h-pad_sz),(out_img_w-1, out_img_h-1),(255),-1)
+    mask = cv2.rectangle(mask,(out_img_w-pad_sz,0),(out_img_w-1, out_img_h-1),(255),-1)
+    
+    return cv2.inpaint(out_img,mask,3,cv2.INPAINT_TELEA)
+    
+    
 def saveImage(img,path,filename):
     # print('got: ', filename)
     if(args.file_extension == "png"):
@@ -178,7 +202,13 @@ class Context:
         for i, drawn_img in enumerate(self.drawn_imgs):
             self.drawn_imgs[i] = cv2.copyMakeBorder(drawn_img, pad, pad, pad, pad, cv2.BORDER_CONSTANT, value=green)
             self.clean_imgs[i] = cv2.copyMakeBorder(drawn_img, pad, pad, pad, pad, cv2.BORDER_CONSTANT, value=green)
-            
+    
+    def outpaint(self, pad):
+        for i, drawn_img in enumerate(self.drawn_imgs):
+            self.drawn_imgs[i] = outpaint_image(drawn_img, pad)
+            self.clean_imgs[i] = np.copy(self.drawn_imgs[i])
+
+    
     def generate_guides(self,pt):
         red = (0,0,255)
         for drawn_img in self.drawn_imgs:
@@ -309,6 +339,9 @@ def interactive(imgs,fs,mode):
     print(args.padding)
     if (args.padding > 0):
         c.pad_images(args.padding)
+    
+    if (args.outpaint > 0):
+        c.outpaint(args.outpaint)
 
     if(args.guides):
         c.generate_guides(int(args.min_size/2))
@@ -388,7 +421,6 @@ def main():
                 imgs.append(img)  
 
     interactive(imgs,fs,args.mode)
-	
 
 if __name__ == "__main__":
     main()
