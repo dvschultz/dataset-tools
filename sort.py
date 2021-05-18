@@ -10,7 +10,7 @@ def parse_args():
 	desc = "Tools to normalize an image dataset" 
 	parser = argparse.ArgumentParser(description=desc)
 
-	parser.add_argument('--verbose', action='store_true',
+	parser.add_argument('-v','--verbose', action='store_true',
 		help='Print progress to console.')
 
 	parser.add_argument('--exact', action='store_true',
@@ -61,9 +61,6 @@ def parse_args():
 
 	parser.add_argument('--use_gpu', action='store_true', 
 		help='use GPU (for lpips process)')
-
-
-
 
 	args = parser.parse_args()
 	return args
@@ -208,7 +205,7 @@ def main():
 					img1 = img1.cuda()
 
 				dist01 = loss_fn.forward(img0,img1)
-				print('Distance: %.3f'%dist01)
+				if(args.verbose): print('%s Distance: %.3f'%(filename,dist01))
 
 				if(dist01 <= args.max_dist):
 					new_path = os.path.join(args.output_folder, filename)
