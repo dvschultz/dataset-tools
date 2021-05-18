@@ -44,6 +44,10 @@ def parse_args():
 		default=1.0,
 		help='Ratio of image (height/width). (default: %(default)s)')
 
+	parser.add_argument('-n','--network', type=str,
+		default='alex',
+		help='Network to use for the LPIPS sort process. Options: alex, vgg, squeeze (default: %(default)s)')
+
 	parser.add_argument('-f','--file_extension', type=str,
 		default='png',
 		help='file type ["png","jpg"] (default: %(default)s)')
@@ -185,7 +189,7 @@ def main():
 		if(args.process_type == "lpips"):
 			import lpips
 
-			loss_fn = lpips.LPIPS(net='alex',version='0.1')			
+			loss_fn = lpips.LPIPS(net=args.network,version='0.1')			
 
 			img0 = lpips.im2tensor(lpips.load_image(args.start_img))
 			
