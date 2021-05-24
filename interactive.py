@@ -373,7 +373,7 @@ def interactive(imgs,fs,mode):
             if(c.i >= len(imgs)):
                 cv2.destroyWindow('image')
         elif(args.choose and (k==110 or k==121)): #n or y key (only when choose mode is on)
-            if (k==110): # y key - accept - copy to yes folder
+            if (k==121): # y key - accept - copy to yes folder
                 choose_save_dest = os.path.join(args.output_folder, "yes")
             else:
                 choose_save_dest = os.path.join(args.output_folder, "no")
