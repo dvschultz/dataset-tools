@@ -10,7 +10,7 @@ def parse_args():
 	desc = "Tools to normalize an image dataset" 
 	parser = argparse.ArgumentParser(description=desc)
 
-	parser.add_argument('--verbose', action='store_true',
+	parser.add_argument('-v','--verbose', action='store_true',
 		help='Print progress to console.')
 
 	parser.add_argument('--exact', action='store_true',
@@ -44,6 +44,10 @@ def parse_args():
 		default=1.0,
 		help='Ratio of image (height/width). (default: %(default)s)')
 
+	parser.add_argument('-n','--network', type=str,
+		default='alex',
+		help='Network to use for the LPIPS sort process. Options: alex, vgg, squeeze (default: %(default)s)')
+
 	parser.add_argument('-f','--file_extension', type=str,
 		default='png',
 		help='file type ["png","jpg"] (default: %(default)s)')
@@ -57,9 +61,6 @@ def parse_args():
 
 	parser.add_argument('--use_gpu', action='store_true', 
 		help='use GPU (for lpips process)')
-
-
-
 
 	args = parser.parse_args()
 	return args
@@ -185,7 +186,7 @@ def main():
 		if(args.process_type == "lpips"):
 			import lpips
 
-			loss_fn = lpips.LPIPS(net='alex',version='0.1')			
+			loss_fn = lpips.LPIPS(net=args.network,version='0.1')			
 
 			img0 = lpips.im2tensor(lpips.load_image(args.start_img))
 			
@@ -204,7 +205,7 @@ def main():
 					img1 = img1.cuda()
 
 				dist01 = loss_fn.forward(img0,img1)
-				print('Distance: %.3f'%dist01)
+				if(args.verbose): print('%s Distance: %.3f'%(filename,dist01))
 
 				if(dist01 <= args.max_dist):
 					new_path = os.path.join(args.output_folder, filename)
