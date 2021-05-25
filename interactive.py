@@ -34,6 +34,8 @@ def parse_args():
     parser.add_argument('--outpaint', type=int, 
         default=0, 
         help='Extend image with data from neighboring pixels. (default: %(default)s)')
+    parser.add_argument('--choose', action='store_true',
+        help='classify each image as yes (y) or no (n), copying into /yes/ or /no/ accordingly')
     parser.add_argument('--post', type=str, 
         default=None,
         help='post processing: None, resize (default: %(default)s)')
@@ -106,14 +108,16 @@ def outpaint_image(in_img, pad_sz):
     
     
 def saveImage(img,path,filename):
-    # print('got: ', filename)
+    #print('got: ', filename)
     if(args.file_extension == "png"):
         new_file = os.path.splitext(filename)[0] + ".png"
-        cv2.imwrite(os.path.join(path, new_file), img, [cv2.IMWRITE_PNG_COMPRESSION, 0])
+        image_write_path = os.path.join(path, new_file)
+        cv2.imwrite(image_write_path, img, [cv2.IMWRITE_PNG_COMPRESSION, 0])
     elif(args.file_extension == "jpg"):
         new_file = os.path.splitext(filename)[0] + ".jpg"
-        cv2.imwrite(os.path.join(path, new_file), img, [cv2.IMWRITE_JPEG_QUALITY, 90])
-
+        image_write_path = os.path.join(path, new_file)
+        cv2.imwrite(image_write_path, img, [cv2.IMWRITE_JPEG_QUALITY, 90])
+    print(f"saving to {image_write_path}?")
 class Context:
     def __init__(self,imgs,fs,mode):
         self.start = False
@@ -354,6 +358,7 @@ def interactive(imgs,fs,mode):
         c.timer+=1
 
         k = cv2.waitKey(33)
+    
         if(k==-1):
             continue
         elif(k==27):
@@ -367,7 +372,17 @@ def interactive(imgs,fs,mode):
             
             if(c.i >= len(imgs)):
                 cv2.destroyWindow('image')
-                
+        elif(args.choose and (k==110 or k==121)): #n or y key (only when choose mode is on)
+            if (k==121): # y key - accept - copy to yes folder
+                choose_save_dest = os.path.join(args.output_folder, "yes")
+            else:
+                choose_save_dest = os.path.join(args.output_folder, "no")
+            print(os.path.abspath(choose_save_dest))
+            saveImage(c.drawn_imgs[c.i], os.path.abspath(choose_save_dest), c.fs[c.i])
+            c.i+=1
+            print('next image: ', c.fs[c.i])
+            c.reset_xy()
+            c.temp_img = c.drawn_imgs[c.i]
         elif(k==123 or k==108): # l key
             c.i-=1
             if(c.i < 0): c.i = 0
@@ -378,14 +393,21 @@ def interactive(imgs,fs,mode):
             c.switch_mode()
         else:
             print('pressed: ', k)
-
 def main():
     global args
     args = parse_args()
 
     os.environ['OPENCV_IO_ENABLE_JASPER']= "true"
     inter = cv2.INTER_CUBIC
-
+    
+    if args.choose:
+        yes_path = os.path.abspath(os.path.join(args.output_folder, "yes"))
+        no_path = os.path.abspath(os.path.join(args.output_folder, "no"))
+        if not os.path.exists(yes_path):
+            os.makedirs(yes_path)
+        if not os.path.exists(no_path):
+            os.makedirs(no_path)
+    
     global imgs, fs
     imgs = []
     fs = []
@@ -421,6 +443,7 @@ def main():
                 imgs.append(img)  
 
     interactive(imgs,fs,args.mode)
+    
 
 if __name__ == "__main__":
     main()
