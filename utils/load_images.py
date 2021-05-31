@@ -25,6 +25,10 @@ def load_images_multi_thread(paths, thread_count=1, verbose=False):
     data = LoadData(paths, verbose)
     threads = []
 
+    data.working_paths = []
+    for i in range(thread_count):
+        data.working_paths.append(None)
+
     for i in range(thread_count):
         threads.append(ImageLoaderThread(i, 'image_load_thread_' + str(i), data))
         threads[-1].start()
@@ -38,6 +42,8 @@ def load_images_multi_thread(paths, thread_count=1, verbose=False):
         timeout_count -= 1
 
     data.exit_flag = True
+
+    assert len(paths) == len(data.images)
 
     return data.images
 
@@ -56,6 +62,8 @@ class LoadData:
             self.paths_queue.put(path)
         self.lock.release()
 
+        self.working_paths = None
+
 
 class ImageLoaderThread(threading.Thread):
     def __init__(self, thread_id, name, data):
@@ -65,23 +73,23 @@ class ImageLoaderThread(threading.Thread):
         self.data = data
 
     def run(self):
-        load_image(self.name, self.data)
+        load_image(self.name, self.thread_id, self.data)
 
 
-def load_image(thread_name, data):
+def load_image(thread_name, thread_id, data):
     while not data.exit_flag:
-        path = None
+        data.working_paths[thread_id] = None
         data.lock.acquire()
         if not data.paths_queue.empty():
-            path = data.paths_queue.get()
+            data.working_paths[thread_id] = data.paths_queue.get()
         data.lock.release()
-        if path is not None:
-            img = cv2.imread(path)
+        if data.working_paths[thread_id] is not None:
+            img = cv2.imread(data.working_paths[thread_id])
             if img is not None:
                 data.lock.acquire()
                 data.images.append(img)
                 data.lock.release()
                 if data.verbose:
-                    print(thread_name + " loaded " + path + " successfully.")
+                    print(thread_name + " loaded " + data.working_paths[thread_id] + " successfully.")
             else:
-                print("Warning! Image not loaded at path: " + path)
+                print("Warning! Image not loaded at path: " + data.working_paths[thread_id])
