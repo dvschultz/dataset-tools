@@ -5,10 +5,12 @@ import cv2
 import numpy as np
 import copy
 
+from utils.load_images import load_images, load_images_multi_thread
+
 start = False
 
 def parse_args():
-    desc = "Interactive tool to generate square crops" 
+    desc = "Interactive tool to generate square crops"
     parser = argparse.ArgumentParser(description=desc)
 
     parser.add_argument('-f','--file_extension', type=str,
@@ -17,7 +19,7 @@ def parse_args():
     parser.add_argument('-i','--input_folder', type=str,
         default='./input/',
         help='Directory path to the inputs folder. (default: %(default)s)')
-    parser.add_argument('--min_size', type=int, 
+    parser.add_argument('--min_size', type=int,
         default=1024,
         help='Minimum width or height of the cropped images. (default: %(default)s)')
     parser.add_argument('-m','--mode', type=str,
@@ -28,17 +30,22 @@ def parse_args():
         help='Directory path to the outputs folder. (default: %(default)s)')
     parser.add_argument('--guides', action='store_true',
         help='Include edge guides')
-    parser.add_argument('--padding', type=int, 
+    parser.add_argument('--padding', type=int,
         default=0,
         help='Add green borders to image. (default: %(default)s)')
-    parser.add_argument('--outpaint', type=int, 
-        default=0, 
+    parser.add_argument('--outpaint', type=int,
+        default=0,
         help='Extend image with data from neighboring pixels. (default: %(default)s)')
     parser.add_argument('--choose', action='store_true',
         help='classify each image as yes (y) or no (n), copying into /yes/ or /no/ accordingly')
-    parser.add_argument('--post', type=str, 
+    parser.add_argument('--post', type=str,
         default=None,
         help='post processing: None, resize (default: %(default)s)')
+    parser.add_argument('-j' '--jobs', type=int,
+        default=1,
+        help='The number of threads to use. (default: %(default)s)')
+    parser.add_argument('--verbose', action='store_true',
+        help='Print progress to console.')
 
     args = parser.parse_args()
     return args
@@ -60,7 +67,7 @@ def image_resize(image, width = None, height = None, max = None):
         else :
             dim = (max, max)
 
-    else: 
+    else:
         # if both the width and height are None, then return the
         # original image
         if width is None and height is None:
@@ -98,15 +105,15 @@ def outpaint_image(in_img, pad_sz):
     fill_color = (255,255,255)
 
     out_img = cv2.copyMakeBorder(in_img, pad_sz, pad_sz, pad_sz, pad_sz, cv2.BORDER_CONSTANT, value=fill_color)
-    
+
     mask = cv2.rectangle(mask,(0,0),(pad_sz-1, out_img_h-1),(255),-1)
     mask = cv2.rectangle(mask,(0,0),(out_img_w-1, pad_sz-1),(255),-1)
     mask = cv2.rectangle(mask,(0, out_img_h-pad_sz),(out_img_w-1, out_img_h-1),(255),-1)
     mask = cv2.rectangle(mask,(out_img_w-pad_sz,0),(out_img_w-1, out_img_h-1),(255),-1)
-    
+
     return cv2.inpaint(out_img,mask,3,cv2.INPAINT_TELEA)
-    
-    
+
+
 def saveImage(img,path,filename):
     #print('got: ', filename)
     if(args.file_extension == "png"):
@@ -176,7 +183,7 @@ class Context:
         pt1 = (int(self.xy[0]+d), int(self.xy[1]-d)) #top right
         pt2 = (int(self.xy[0]+d), int(self.xy[1]+d)) #bottom right
         pt3 = (int(self.xy[0]-d), int(self.xy[1]+d)) #bottom left
-        
+
         theta = (self.a * np.pi / 180)
         rotated_x = np.cos(theta) * (pt0[0] - self.xy[0]) - np.sin(theta) * (pt0[1] - self.xy[1]) + self.xy[0]
         rotated_y = np.sin(theta) * (pt0[0] - self.xy[0]) + np.cos(theta) * (pt0[1] - self.xy[1]) + self.xy[1]
@@ -206,13 +213,13 @@ class Context:
         for i, drawn_img in enumerate(self.drawn_imgs):
             self.drawn_imgs[i] = cv2.copyMakeBorder(drawn_img, pad, pad, pad, pad, cv2.BORDER_CONSTANT, value=green)
             self.clean_imgs[i] = cv2.copyMakeBorder(drawn_img, pad, pad, pad, pad, cv2.BORDER_CONSTANT, value=green)
-    
+
     def outpaint(self, pad):
         for i, drawn_img in enumerate(self.drawn_imgs):
             self.drawn_imgs[i] = outpaint_image(drawn_img, pad)
             self.clean_imgs[i] = np.copy(self.drawn_imgs[i])
 
-    
+
     def generate_guides(self,pt):
         red = (0,0,255)
         for drawn_img in self.drawn_imgs:
@@ -255,7 +262,7 @@ class Context:
                 cv2.rectangle(self.drawn_imgs[self.i],c0,c1,(0,0,255),10)
             else:
                 self.draw_rotated_box(self.drawn_imgs[self.i],d,(0,0,255))
-    
+
     def mouse(self,event,x,y,flags,param):
         if(self.mode == "center"):
             self.center_mouse(event,x,y,flags,param)
@@ -292,7 +299,7 @@ class Context:
                 dy = self.b_xy[1][1] - self.b_xy[0][1]
 
                 # note: this assumes your first click is the bottom, the next is the top
-                self.a = (np.arctan2(dy,dx)* 180. / np.pi) + 90. # why add 90? 
+                self.a = (np.arctan2(dy,dx)* 180. / np.pi) + 90. # why add 90?
                 self.xy = ( int((self.b_xy[0][0] + self.b_xy[1][0])/2) , int((self.b_xy[0][1] + self.b_xy[1][1])/2) )
                 # print(np.arctan2(dy,dx) * 180. / np.pi)
                 # print(self.xy)
@@ -343,7 +350,7 @@ def interactive(imgs,fs,mode):
     print(args.padding)
     if (args.padding > 0):
         c.pad_images(args.padding)
-    
+
     if (args.outpaint > 0):
         c.outpaint(args.outpaint)
 
@@ -358,7 +365,7 @@ def interactive(imgs,fs,mode):
         c.timer+=1
 
         k = cv2.waitKey(33)
-    
+
         if(k==-1):
             continue
         elif(k==27):
@@ -369,7 +376,7 @@ def interactive(imgs,fs,mode):
             print('next image: ', c.fs[c.i])
             c.reset_xy()
             c.temp_img = c.drawn_imgs[c.i]
-            
+
             if(c.i >= len(imgs)):
                 cv2.destroyWindow('image')
         elif(args.choose and (k==110 or k==121)): #n or y key (only when choose mode is on)
@@ -399,7 +406,7 @@ def main():
 
     os.environ['OPENCV_IO_ENABLE_JASPER']= "true"
     inter = cv2.INTER_CUBIC
-    
+
     if args.choose:
         yes_path = os.path.abspath(os.path.join(args.output_folder, "yes"))
         no_path = os.path.abspath(os.path.join(args.output_folder, "no"))
@@ -407,7 +414,7 @@ def main():
             os.makedirs(yes_path)
         if not os.path.exists(no_path):
             os.makedirs(no_path)
-    
+
     global imgs, fs
     imgs = []
     fs = []
@@ -428,6 +435,7 @@ def main():
     if not os.path.exists(args.output_folder):
         os.makedirs(args.output_folder)
 
+    to_load = []
     for root, subdirs, files in os.walk(args.input_folder):
         print('--\nroot = ' + root)
 
@@ -436,14 +444,18 @@ def main():
 
         for filename in files:
             file_path = os.path.join(root, filename)
-            img = cv2.imread(file_path)
+            to_load.append(file_path)
 
-            if hasattr(img, 'copy'):
-                fs.append(filename)
-                imgs.append(img)  
+    loaded_images = load_images_multi_thread(to_load, args.j__jobs, args.verbose)
+    assert len(loaded_images) == len(to_load)
+    for i in range(len(loaded_images)):
+        if hasattr(loaded_images, 'copy'):
+            fs.append(to_load[i])
+            imgs.append(loaded_images[i])
+    assert len(fs) == len(imgs)
 
     interactive(imgs,fs,args.mode)
-    
+
 
 if __name__ == "__main__":
     main()
