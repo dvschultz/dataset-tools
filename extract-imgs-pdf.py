@@ -6,7 +6,7 @@ import fitz
 
 
 def parse_args():
-    desc = "Script will extract all images found in a pdf or directory of pdfs."
+    desc = "Script will extract all images found in a pdf or directory of pdfs and save them as pngs."
     parser = argparse.ArgumentParser(description=desc)
 
     parser.add_argument('-i', '--input', type=str,
@@ -16,10 +16,6 @@ def parse_args():
     parser.add_argument('-o', '--output', type=str,
                         default='./output/',
                         help='Directory path to the outputs folder. (default: %(default)s)')
-
-    parser.add_argument('--file_extension', type=str,
-                        default='png',
-                        help='file extension ["png","jpg"] (default: %(default)s)')
 
     parser.add_argument('--verbose', action='store_true',
                         help='Print progress to console.')
