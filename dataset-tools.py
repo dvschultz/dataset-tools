@@ -80,7 +80,7 @@ def parse_args():
 
 	parser.add_argument('--border_type', type=str,
 		default='stretch',
-		help='Border style to use when using the square process type ["stretch","reflect","solid"] (default: %(default)s)')
+		help='Border style to use when using the square process type ["stretch","reflect","solid","inpaint"] (default: %(default)s)')
 
 	parser.add_argument('--border_color', type=str,
 		default='255,255,255',
@@ -324,17 +324,38 @@ def makeScale(img,filename,scale):
 	if (args.mirror): flipImage(img_copy,new_file,remakePath)
 	if (args.rotate): rotateImage(img_copy,new_file,remakePath)
 
+# https://docs.opencv.org/4.5.2/df/d3d/tutorial_py_inpainting.html
+def inpaintSquare(img,scale):
+	print(scale)
+	(h, w) = img.shape[:2]
+	mask = np.zeros((h,w,1), np.uint8)
+	diff_x = scale - w
+	diff_y = scale - h
+
+	if(diff_x%2 == 0 and diff_y%2 == 0 ):
+		print('1')
+		img = cv2.copyMakeBorder(img, int(diff_y/2), int(diff_y/2), int(diff_x/2), int(diff_x/2), cv2.BORDER_CONSTANT,value=[255,255,255])
+		mask = cv2.copyMakeBorder(mask, int(diff_y/2), int(diff_y/2), int(diff_x/2), int(diff_x/2), cv2.BORDER_CONSTANT,value=[255,255,255])
+	elif(diff_x%2 == 0):
+		print('2')
+		img = cv2.copyMakeBorder(img, int(diff_y/2)+1, int(diff_y/2), int(diff_x/2), int(diff_x/2), cv2.BORDER_CONSTANT,value=[255,255,255])
+		mask = cv2.copyMakeBorder(mask, int(diff_y/2)+1, int(diff_y/2), int(diff_x/2), int(diff_x/2), cv2.BORDER_CONSTANT,value=[255,255,255])
+	else:
+		print('3')
+		img = cv2.copyMakeBorder(img, int(diff_y/2), int(diff_y/2), int(diff_x/2)+1, int(diff_x/2), cv2.BORDER_CONSTANT,value=[255,255,255])
+		mask = cv2.copyMakeBorder(mask, int(diff_y/2), int(diff_y/2), int(diff_x/2)+1, int(diff_x/2), cv2.BORDER_CONSTANT,value=[255,255,255])
+
+	print(img.shape)
+	print(mask.shape)
+
+	return cv2.inpaint(img,mask,3,cv2.INPAINT_NS)
+
 
 def makeSquare(img,filename,scale):
 	sqPath = args.output_folder + "sq-"+str(scale)+"/"
 	if not os.path.exists(sqPath):
 		os.makedirs(sqPath)
 
-	bType = cv2.BORDER_REPLICATE
-	if(args.border_type == 'solid'):
-		bType = cv2.BORDER_CONSTANT
-	elif (args.border_type == 'reflect'):
-		bType = cv2.BORDER_REFLECT
 	img_sq = img.copy()
 	(h, w) = img_sq.shape[:2]
 	if((h < scale) and (w < scale)):
@@ -342,43 +363,52 @@ def makeSquare(img,filename,scale):
 	else:
 		img_sq = image_resize(img_sq, max = scale)
 
-	bColor = [int(item) for item in args.border_color.split(',')]
-
-	(h, w) = img_sq.shape[:2]
-	if(args.force_max):
-		diff_x = scale - w
-		diff_y = scale - h
-
-		if(diff_x%2 == 0 and diff_y%2 == 0 ):
-			img_sq = cv2.copyMakeBorder(img_sq, int(diff_y/2), int(diff_y/2), int(diff_x/2), int(diff_x/2), bType,value=bColor)
-		elif(diff_x%2 == 0):
-			img_sq = cv2.copyMakeBorder(img_sq, int(diff_y/2)+1, int(diff_y/2), int(diff_x/2), int(diff_x/2), bType,value=bColor)
-		else:
-			img_sq = cv2.copyMakeBorder(img_sq, int(diff_y/2), int(diff_y/2), int(diff_x/2)+1, int(diff_x/2), bType,value=bColor)
-	elif(h > w):
-		# pad left/right
-		diff = h-w
-		if(diff%2 == 0):
-			img_sq = cv2.copyMakeBorder(img_sq, 0, 0, int(diff/2), int(diff/2), bType,value=bColor)
-		else:
-			img_sq = cv2.copyMakeBorder(img_sq, 0, 0, int(diff/2)+1, int(diff/2), bType,value=bColor)
-	elif(w > h):
-		# pad top/bottom
-		diff = w-h
-
-		if(args.v_align == 'bottom'):
-			img_sq = cv2.copyMakeBorder(img_sq, diff, 0, 0, 0, bType,value=bColor)
-		else:
-			if(diff%2 == 0):
-				img_sq = cv2.copyMakeBorder(img_sq, int(diff/2), int(diff/2), 0, 0, bType,value=bColor)
-			else:
-				img_sq = cv2.copyMakeBorder(img_sq, int(diff/2), int(diff/2)+1, 0, 0, bType,value=bColor)
+	if(args.border_type=="inpaint"):
+		img_sq = inpaintSquare(img_sq, scale)
 	else:
-		diff = scale-h
-		if(diff%2 == 0):
-			img_sq = cv2.copyMakeBorder(img_sq, int(diff/2), int(diff/2), int(diff/2), int(diff/2), bType,value=bColor)
+		bType = cv2.BORDER_REPLICATE
+		if(args.border_type == 'solid'):
+			bType = cv2.BORDER_CONSTANT
+		elif (args.border_type == 'reflect'):
+			bType = cv2.BORDER_REFLECT
+
+		bColor = [int(item) for item in args.border_color.split(',')]
+
+		(h, w) = img_sq.shape[:2]
+		if(args.force_max):
+			diff_x = scale - w
+			diff_y = scale - h
+
+			if(diff_x%2 == 0 and diff_y%2 == 0 ):
+				img_sq = cv2.copyMakeBorder(img_sq, int(diff_y/2), int(diff_y/2), int(diff_x/2), int(diff_x/2), bType,value=bColor)
+			elif(diff_x%2 == 0):
+				img_sq = cv2.copyMakeBorder(img_sq, int(diff_y/2)+1, int(diff_y/2), int(diff_x/2), int(diff_x/2), bType,value=bColor)
+			else:
+				img_sq = cv2.copyMakeBorder(img_sq, int(diff_y/2), int(diff_y/2), int(diff_x/2)+1, int(diff_x/2), bType,value=bColor)
+		elif(h > w):
+			# pad left/right
+			diff = h-w
+			if(diff%2 == 0):
+				img_sq = cv2.copyMakeBorder(img_sq, 0, 0, int(diff/2), int(diff/2), bType,value=bColor)
+			else:
+				img_sq = cv2.copyMakeBorder(img_sq, 0, 0, int(diff/2)+1, int(diff/2), bType,value=bColor)
+		elif(w > h):
+			# pad top/bottom
+			diff = w-h
+
+			if(args.v_align == 'bottom'):
+				img_sq = cv2.copyMakeBorder(img_sq, diff, 0, 0, 0, bType,value=bColor)
+			else:
+				if(diff%2 == 0):
+					img_sq = cv2.copyMakeBorder(img_sq, int(diff/2), int(diff/2), 0, 0, bType,value=bColor)
+				else:
+					img_sq = cv2.copyMakeBorder(img_sq, int(diff/2), int(diff/2)+1, 0, 0, bType,value=bColor)
 		else:
-			img_sq = cv2.copyMakeBorder(img_sq, int(diff/2), int(diff/2)+1, int(diff/2), int(diff/2)+1, bType,value=bColor)
+			diff = scale-h
+			if(diff%2 == 0):
+				img_sq = cv2.copyMakeBorder(img_sq, int(diff/2), int(diff/2), int(diff/2), int(diff/2), bType,value=bColor)
+			else:
+				img_sq = cv2.copyMakeBorder(img_sq, int(diff/2), int(diff/2)+1, int(diff/2), int(diff/2)+1, bType,value=bColor)
 
 	if(args.file_extension == "png"):
 		new_file = os.path.splitext(filename)[0] + ".png"
@@ -421,7 +451,8 @@ def makeCrop(img,filename):
 	img_copy = img.copy()
 	img_copy,error = arbitrary_crop(img_copy,args.height,args.width)
 
-	if((img_copy.shape[0] != args.width) or (img_copy.shape[1] != args.height)):
+	if((img_copy.shape[0] != args.height) or (img_copy.shape[1] != args.width)):
+		# print(img_copy.shape[1], args.height, img_copy.shape[0], args.width)
 		print("unable to crop to the size requested")
 
 	if (error==False):
@@ -598,9 +629,13 @@ def main():
 
 	if os.path.isdir(args.input_folder):
 		print("Processing folder: " + args.input_folder)
-	else:
-		print("Not a working input_folder path: " + args.input_folder)
-		return;
+	elif os.path.isfile(args.input_folder):
+		img = cv2.imread(args.input_folder)
+		filename = args.input_folder.split('/')[-1]
+
+		if hasattr(img, 'copy'):
+			if(args.verbose): print('processing image: ' + filename)  
+			processImage(img,os.path.splitext(filename)[0])
 
 	for root, subdirs, files in os.walk(args.input_folder):
 		if(args.verbose): print('--\nroot = ' + root)
