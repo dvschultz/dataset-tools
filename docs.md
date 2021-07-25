@@ -1,12 +1,12 @@
 # Generated Docs 📜
 ⚠️ Do not modify this file because it will be overwritten automatically
-## multi-copy.py
-```
-```
-## extract-imgs-pdf.py
+## convert.py
 ```
 ```
 ## dataset-tools.py
+```
+```
+## psd.py
 ```
 ```
 ## obj_detect_cropper.py
@@ -34,16 +34,7 @@ optional arguments:
   --file_extension FILE_EXTENSION
                         file extension ["png","jpg"] (default: png)
 ```
-## convert.py
-```
-```
-## rotate.py
-```
-```
 ## facesort.py
-```
-```
-## psd.py
 ```
 ```
 ## crop_bounds.py
@@ -52,10 +43,19 @@ optional arguments:
 ## dedupe.py
 ```
 ```
-## sort.py
+## rotate.py
 ```
 ```
 ## interactive.py
+```
+```
+## extract-imgs-pdf.py
+```
+```
+## sort.py
+```
+```
+## multi-copy.py
 ```
 ```
 ## multicrop.py
