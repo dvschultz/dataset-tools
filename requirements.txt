@@ -5,3 +5,4 @@ scipy
 mac-tag
 psd-tools3
 lpips
+PyMuPDF

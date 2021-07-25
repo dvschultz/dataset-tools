@@ -7,6 +7,8 @@ import random
 import operator
 
 # print(cv2.__version__)
+from utils.load_images import load_images_multi_thread
+
 
 def parse_args():
 	desc = "Dedupe imageset" 
@@ -34,6 +36,10 @@ def parse_args():
 	parser.add_argument('--avg_match', type=float,
 		default=1.0,
 		help='average pixel difference between images (use with --relative) (default: %(default)s)')
+
+	parser.add_argument('-j' '--jobs', type=int,
+		default=1,
+		help='The number of threads to use. (default: %(default)s)')
 
 	feature_parser = parser.add_mutually_exclusive_group(required=False)
 	feature_parser.add_argument('--absolute', dest='absolute', action='store_true')
@@ -154,6 +160,7 @@ def main():
 	imgs = []
 	filenames = []
 	print("loading images...")
+	to_load = []
 	for root, subdirs, files in os.walk(args.input_folder):
 		if(args.verbose): print('--\nroot = ' + root)
 
@@ -161,12 +168,14 @@ def main():
 			if(args.verbose): print('\t- subdirectory ' + subdir)
 
 		for filename in files:
-			if not filename.startswith('.'):
-				file_path = os.path.join(root, filename)
-				if(args.verbose): print('\t- file %s (full path: %s)' % (filename, file_path))
-				
-				imgs.append([cv2.imread(file_path),filename])
-				# print(imgs)
+			file_path = os.path.join(root, filename)
+			to_load.append(file_path)
+			filenames.append(filename)
+
+	loaded_images = load_images_multi_thread(to_load, args.j__jobs, args.verbose)
+	assert len(loaded_images) == len(to_load) == len(filenames)
+	for i in range(len(loaded_images)):
+		imgs.append([loaded_images[i], filenames[i]])
 
 	print("sorting images...")
 	imgs.sort(key=operator.itemgetter(1))	
