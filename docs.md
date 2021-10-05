@@ -3,13 +3,10 @@
 ## convert.py
 ```
 ```
-## dataset-tools.py
+## multicrop.py
 ```
 ```
-## psd.py
-```
-```
-## obj_detect_cropper.py
+## interactive.py
 ```
 ```
 ## list-remove.py
@@ -34,30 +31,36 @@ optional arguments:
   --file_extension FILE_EXTENSION
                         file extension ["png","jpg"] (default: png)
 ```
-## facesort.py
-```
-```
 ## crop_bounds.py
 ```
 ```
-## dedupe.py
+## obj_detect_cropper.py
 ```
 ```
-## rotate.py
-```
-```
-## interactive.py
-```
-```
-## extract-imgs-pdf.py
+## facesort.py
 ```
 ```
 ## sort.py
 ```
 ```
+## dedupe.py
+```
+```
+## window.py
+```
+```
+## dataset-tools.py
+```
+```
+## extract-imgs-pdf.py
+```
+```
+## rotate.py
+```
+```
 ## multi-copy.py
 ```
 ```
-## multicrop.py
+## psd.py
 ```
 ```
