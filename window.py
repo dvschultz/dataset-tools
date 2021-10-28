@@ -46,7 +46,7 @@ def parse_args():
         help='starting index for --numbered (default: %(default)s)')
 
 	parser.add_argument('-d','--direction', type=str,
-		default='YthenX',
+		default='XthenY',
 		help='direction to process each image ["YthenX", "XthenY"] (default: %(default)s)')
 
 	parser.add_argument('-fe','--file_extension', type=str,
@@ -132,8 +132,9 @@ def processImage(img,filename):
 	(h, w) = img.shape[:2]
 
 	counter = 0
-	y = 0
-	if (args.direction == 'YthenX'):
+	
+	if (args.direction == 'XthenY'):
+		y = 0
 		while(y <= (h - args.height)):
 			
 			x = 0
@@ -150,12 +151,13 @@ def processImage(img,filename):
 				x += (args.width + args.offset_x)
 
 			y+= (args.height + args.offset_y)
-			
-	elif (args.direction == 'XthenY'):
+
+	elif (args.direction == 'YthenX'):
+		x = 0
 		while(x <= (w - args.width)):
-			
 			y = 0
-			while(y <= (y - args.height)):
+			
+			while(y <= (h - args.height)):
 				img_copy = img[y:y+args.height,x:x+args.width]
 				if(args.name):
 					fn = filename+'-'+str(counter)
