@@ -79,6 +79,15 @@ This tool produces randomized multi-scale crops. A video tutorial is [here](http
 * `--min_ratio`: Ratio of image (height/width). *Default*: `1.0`
 * `--exact`: Match to exact specs. Use `--min_size` for shorter dimension, `--max_size` for longer dimension
 
+### sort-color.py
+Sorts a folder of images into separate folders based on dominant color. It will check the image's dominant color against all colors passed in, so depending on your threshold level and specified colors, you may end up with duplicate images across folders (e.g. the same sunset image in the red folder, orange folder, and yellow folder).
+
+* `-v, --verbose`: Print progress to console.
+* `-i, --input_folder`: Directory path to the inputs folder. *Default*: `./input/`
+* `-o, --output_folder`: Directory path to the outputs folder. *Default*: `./output/`
+* `-t, --threshold`: Threshold for color matching, lower values are more exact. *Default*: `40`
+* `-c, --colors`: Comma-separated list of [W3C color names](https://en.wikipedia.org/wiki/Web_colors#X11_color_names) to check against . *Default*: `red,orange,yellow,green,blue,purple,black,white`
+* `--rgb` A single color of comma-separated RGB values (e.g. 128,255,30): . *Default*: `None`
 
 ### interactive.py
 [YouTube Demo](https://www.youtube.com/watch?v=tUzUJNrSAu8)
