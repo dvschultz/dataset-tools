@@ -1,18 +1,27 @@
 # Generated Docs 📜
 ⚠️ Do not modify this file because it will be overwritten automatically
+## convert.py
+```
+```
 ## psd.py
 ```
 ```
-## convert.py
+## rotate.py
 ```
 ```
 ## dataset-tools.py
 ```
 ```
-## obj_detect_cropper.py
+## dedupe.py
 ```
 ```
 ## extract-imgs-pdf.py
+```
+```
+## facesort.py
+```
+```
+## sort-color.py
 ```
 ```
 ## list-remove.py
@@ -37,19 +46,10 @@ optional arguments:
   --file_extension FILE_EXTENSION
                         file extension ["png","jpg"] (default: png)
 ```
-## facesort.py
+## interactive.py
 ```
 ```
-## multicrop.py
-```
-```
-## window.py
-```
-```
-## dedupe.py
-```
-```
-## rotate.py
+## obj_detect_cropper.py
 ```
 ```
 ## multi-copy.py
@@ -58,7 +58,10 @@ optional arguments:
 ## crop_bounds.py
 ```
 ```
-## interactive.py
+## window.py
+```
+```
+## multicrop.py
 ```
 ```
 ## sort.py
