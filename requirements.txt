@@ -6,3 +6,5 @@ mac-tag
 psd-tools3
 lpips
 PyMuPDF
+scikit-learn
+scikit-image
