@@ -32,10 +32,13 @@ def parse_args():
         default='png',
         help='file extension ["png","jpg"] (default: %(default)s)')
 
+    parser.add_argument('-g','--grayscale', action='store_true',
+        help='Convert to one channel grayscale')
+
     parser.add_argument('--verbose', action='store_true',
         help='Print progress to console.')
 
-    parser.add_argument('-j' '--jobs', type=int,
+    parser.add_argument('-j', '--jobs', type=int,
         default=1,
         help='The number of threads to use. (default: %(default)s)')
 
@@ -48,13 +51,18 @@ def threadRunner(threadName):
         convertImage(threadName, filename)
 
 def convertImage(threadName, filename):
-    file_path = os.path.join(rootDir, filename)
-    if(args.verbose): print('(%s) processing\t- file %s (full path: %s)' % (threadName, filename, file_path))
-            
-    img = cv2.imread(file_path)
+    # print(filename)
+    file_path = filename
+    fn = file_path.split('/')[-1]
+    if(args.verbose): print('(%s) processing\t- file %s (full path: %s)' % (threadName, fn, file_path))
+    
+    img = cv2.imread(filename)    
 
     if hasattr(img, 'copy'):
-        processImage(img,os.path.splitext(filename)[0])
+        if (args.grayscale):
+            img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+
+        processImage(img,os.path.splitext(fn)[0])
     
 
 def main():
@@ -86,10 +94,10 @@ def main():
 
         for filename in files:
             # add files to queue
-            q.put(filename)
+            q.put(os.path.join(root, filename))
             
     # start threads
-    for i in range(args.j__jobs):
+    for i in range(args.jobs):
         try:
             threadName = 'thread-' + str(i)
             if(args.verbose): print('starting thread %s' % (threadName))
