@@ -253,8 +253,6 @@ def processImage(img,filename):
                     y2 = max(Ys) + padding[1]
 
                     angle = rect[2]
-                    print(angle)
-                    print('fixed', angle % 90.0)
                     if(args.max_angle):
                         a = angle % 90.0
                         if((a > args.max_angle) and (a < (90.0-args.max_angle))):
