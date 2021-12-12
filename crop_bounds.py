@@ -29,27 +29,36 @@ def crop_dims(img,tol=0,padding=10):
     return (row_start,row_end,col_start,col_end)
 
 def pad_crop(crop_dim,padding,h,w):
-    if(crop_dim[0]-padding >= 0):
-        crop_dim[0]-=padding
+    if not isinstance(padding, list):
+        padding = [padding,padding,padding,padding]
+
+    if(crop_dim[0]-padding[0] >= 0):
+        crop_dim[0]-=padding[0]
     else:
         crop_dim[0] = 0
 
-    if(crop_dim[1]+padding <= h):
-        crop_dim[1]+=padding
+    if(crop_dim[1]+padding[1] <= h):
+        crop_dim[1]+=padding[1]
     else:
         crop_dim[1] = h
 
-    if(crop_dim[2]-padding >= 0):
-        crop_dim[2]-=padding
+    if(crop_dim[2]-padding[2] >= 0):
+        crop_dim[2]-=padding[2]
     else:
         crop_dim[2] = 0
 
-    if(crop_dim[3]+padding <= w):
-        crop_dim[3]+=padding
+    if(crop_dim[3]+padding[3] <= w):
+        crop_dim[3]+=padding[3]
     else:
         crop_dim[3] = w
 
     return crop_dim
+
+def parse_padding(padding):
+    if(len(padding.split(',')) > 1 ):
+        return [int(p) for p in padding.split(',')]
+    else:
+        return int(padding)
 
 def precrop(img,dims):
     (ih, iw) = img.shape[:2]
@@ -222,21 +231,26 @@ def processImage(img,filename):
             
             if(use):
                 if(args.rotate):
+                    if not isinstance(args.padding, list):
+                        padding = [args.padding,args.padding,args.padding,args.padding]
+                    else:
+                        padding = args.padding
+
                     rect = cv2.minAreaRect(contour)
                     box = cv2.boxPoints(rect)
                     box = np.int0(box)
 
                     #crop image inside bounding box
                     scale = 1  # cropping margin, 1 == no margin
-                    W = rect[1][0]
-                    H = rect[1][1]
+                    W = (rect[1][0]) + padding[2] + padding[3]
+                    H = rect[1][1] + padding[0] + padding[1]
 
                     Xs = [i[0] for i in box]
                     Ys = [i[1] for i in box]
-                    x1 = min(Xs)
-                    x2 = max(Xs)
-                    y1 = min(Ys)
-                    y2 = max(Ys)
+                    x1 = min(Xs) - padding[2]
+                    x2 = max(Xs) + padding[3]
+                    y1 = min(Ys) - padding[0]
+                    y2 = max(Ys) + padding[1]
 
                     angle = rect[2]
                     if(args.max_angle):
@@ -245,12 +259,10 @@ def processImage(img,filename):
                             print('Does not match angle requirements: ' + str(a))
                             continue
 
+                    rgb = (np.random.randint(0,255),np.random.randint(0,255),np.random.randint(0,255))
+                    drawn = cv2.drawContours(drawn,[box],0,rgb,2)
                     if(args.fill_boxes):
-                        rgb = (np.random.randint(0,255),np.random.randint(0,255),np.random.randint(0,255))
-                        drawn = cv2.drawContours(drawn,[box],0,rgb,2)
                         drawn = cv2.fillPoly(drawn, pts =[box], color=rgb)
-                    else:
-                        drawn = cv2.drawContours(drawn,[box],0,(0,255,0),2)
 
                     rotated = False
                     if angle < -45:
@@ -270,14 +282,16 @@ def processImage(img,filename):
                     croppedW = W if not rotated else H
                     croppedH = H if not rotated else W
 
-                    image = cv2.getRectSubPix(cropped, (int(croppedW*scale), int(croppedH*scale)), (size[0]/2, size[1]/2))
+                    image = cropped
                     if(args.resize):
                         image = image_resize(image, max = args.resize)
                     saveImage(image, foldername, fn)
                 else:
                     crop_dim = [y,(y+h),x,(x+w)]
+                    print('old crop dim:',crop_dim)
                     # crop_dim = [(int(1/args.scalar))*x for x in crop_dim]
                     crop_dim = pad_crop(crop_dim,args.padding,oh,ow)
+                    print('new crop dim:',crop_dim)
 
                     roi = img[crop_dim[0]:crop_dim[1],crop_dim[2]:crop_dim[3]]
                     # drawn = cv2.rectangle(drawn, (x, y), (x + w, y + h), (36,255,12), 2)
@@ -377,7 +391,7 @@ def parse_args():
         default=127,
         help='min pixel color (default: %(default)s)')
 
-    parser.add_argument('--padding', type=int, 
+    parser.add_argument('--padding', type=parse_padding, 
         default=100,
         help='padding around crop, in pixels. (default: %(default)s)')
 
@@ -445,9 +459,10 @@ def main():
     global inter
     args = parse_args()
 
+    print(args.padding)
+
     os.environ['OPENCV_IO_ENABLE_JASPER']= "true"
     inter = cv2.INTER_CUBIC
-    padding = 100
 
     if os.path.isdir(args.input_folder):
         print("Processing folder: " + args.input_folder)
