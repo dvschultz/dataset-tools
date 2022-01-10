@@ -96,7 +96,7 @@ def parse_args():
 	parser.add_argument('--rotate', action='store_true',
 		help='Adds 90 degree rotation augmentation.')
 
-	parser.add_argument('--file_extension', type=str,
+	parser.add_argument('-f','--file_extension', type=str,
 		default='png',
 		help='Border style to use when using the square process type ["png","jpg"] (default: %(default)s)')
 
@@ -383,6 +383,18 @@ def makeSquare(img,filename,scale):
 				img_sq = cv2.copyMakeBorder(img_sq, int(diff_y/2), int(diff_y/2), int(diff_x/2), int(diff_x/2), bType,value=bColor)
 			elif(diff_x%2 == 0):
 				img_sq = cv2.copyMakeBorder(img_sq, int(diff_y/2)+1, int(diff_y/2), int(diff_x/2), int(diff_x/2), bType,value=bColor)
+			elif(diff_y%2 == 0):
+				img_sq = cv2.copyMakeBorder(img_sq, int(diff_y/2), int(diff_y/2), int(diff_x/2)+1, int(diff_x/2), bType,value=bColor)
+			
+			#checks if our division leads to incorrect image sizes
+			elif ((h + (int(diff_y/2)*2) != scale) or (w + (int(diff_x/2)*2) != scale)):
+				
+				if(h + (int(diff_y/2)*2) != scale) and (w + (int(diff_x/2)*2) != scale):
+					img_sq = cv2.copyMakeBorder(img_sq, int(diff_y/2)+1, int(diff_y/2), int(diff_x/2)+1, int(diff_x/2), bType,value=bColor)
+				elif(h + (int(diff_y/2)*2) != scale):
+					img_sq = cv2.copyMakeBorder(img_sq, int(diff_y/2), int(diff_y/2), int(diff_x/2)+1, int(diff_x/2), bType,value=bColor)
+				elif(w + (int(diff_x/2)*2) != scale):
+					img_sq = cv2.copyMakeBorder(img_sq, int(diff_y/2)+1, int(diff_y/2), int(diff_x/2), int(diff_x/2), bType,value=bColor)	
 			else:
 				img_sq = cv2.copyMakeBorder(img_sq, int(diff_y/2), int(diff_y/2), int(diff_x/2)+1, int(diff_x/2), bType,value=bColor)
 		elif(h > w):

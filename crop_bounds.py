@@ -60,7 +60,7 @@ def parse_padding(padding):
     else:
         return int(padding)
 
-def precrop(img,dims):
+def pcrop(img,dims):
     (ih, iw) = img.shape[:2]
     return img[dims[0]:ih-dims[1],dims[2]:iw-dims[3]]
 
@@ -166,7 +166,7 @@ def processImage(img,filename):
 
     if(args.precrop):
         dims = [int(item) for item in args.precrop.split(',')]
-        img = precrop(img, dims)
+        img = pcrop(img, dims)
 
         if (args.img_debug):
             saveImage(img,args.output_folder,filename+'-precrop')
@@ -244,6 +244,8 @@ def processImage(img,filename):
                     scale = 1  # cropping margin, 1 == no margin
                     W = (rect[1][0]) + padding[2] + padding[3]
                     H = rect[1][1] + padding[0] + padding[1]
+                    # W = rect[1][0]
+                    # H = rect[1][1]
 
                     Xs = [i[0] for i in box]
                     Ys = [i[1] for i in box]
@@ -251,6 +253,12 @@ def processImage(img,filename):
                     x2 = max(Xs) + padding[3]
                     y1 = min(Ys) - padding[0]
                     y2 = max(Ys) + padding[1]
+
+                    # x1 = min(Xs)
+                    # x2 = max(Xs)
+                    # y1 = min(Ys)
+                    # y2 = max(Ys)
+
 
                     angle = rect[2]
                     if(args.max_angle):
@@ -285,6 +293,11 @@ def processImage(img,filename):
                     croppedH = H if not rotated else W
 
                     image = cropped
+
+                    if(args.postcrop is not None):
+                        dims = [int(item) for item in args.postcrop.split(',')]
+                        image = pcrop(image, dims)
+
                     if(args.resize):
                         image = image_resize(image, max = args.resize)
                     saveImage(image, foldername, fn)
@@ -401,6 +414,11 @@ def parse_args():
         type=str,
         default=None,
         help='crop image before processing (in pixels). Top,Bottom,Left,Right; example: "10,20,10,10" (default: %(default)s)')
+
+    parser.add_argument('--postcrop',
+        type=str,
+        default=None,
+        help='crop image after processing (in pixels). Top,Bottom,Left,Right; example: "10,20,10,10" (default: %(default)s)')
 
     parser.add_argument('-p','--process_type', type=str,
         default='contours',
