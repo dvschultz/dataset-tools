@@ -1,5 +1,5 @@
 numpy>=1.7.0
-imutils==0.5.2
+imutils
 opencv-python>=4.1.0.25
 scipy
 mac-tag
