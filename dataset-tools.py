@@ -31,12 +31,22 @@ def parse_args():
 		help='Process to use. ["resize","square","crop_to_square","canny","canny-pix2pix","crop_square_patch","scale","many_squares","crop","distance"] (default: %(default)s)')
 
 	parser.add_argument('--blur_type', type=str,
-		default='none',
+		default='gaussian',
 		help='Blur process to use. Use with --process_type canny. ["none","gaussian","median"] (default: %(default)s)')
 
 	parser.add_argument('--blur_amount', type=int, 
 		default=1,
 		help='Amount of blur to apply (use odd numbers). Use with --blur_type.  (default: %(default)s)')
+
+
+	parser.add_argument('-cmin','--canny_min', type=int, 
+		default=100,
+		help='Minimum threshold for Canny use.  (default: %(default)s)')
+
+
+	parser.add_argument('-cmax','--canny_max', type=int, 
+		default=300,
+		help='Maximum threshold for Canny use.  (default: %(default)s)')
 
 	parser.add_argument('--max_size', type=int, 
 		default=1024,
@@ -231,12 +241,12 @@ def crop_square_patch(img, imgSize):
 
 def processCanny(img):
 	gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-	
+
 	if(args.blur_type=='gaussian'):
 		gray = cv2.GaussianBlur(gray, (args.blur_amount, args.blur_amount), 0)
 	elif(args.blur_type=='median'):
 		gray = cv2.medianBlur(gray,args.blur_amount)
-	gray = cv2.Canny(gray,100,300)
+	gray = cv2.Canny(gray,args.canny_min,args.canny_max)
 
 	return gray
 
