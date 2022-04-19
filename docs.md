@@ -1,36 +1,27 @@
 # Generated Docs 📜
 ⚠️ Do not modify this file because it will be overwritten automatically
-## window.py
-```
-```
-## sort-color.py
-```
-```
 ## sort.py
-```
-```
-## rotate.py
-```
-```
-## multicrop.py
-```
-```
-## crop_bounds.py
 ```
 ```
 ## psd.py
 ```
 ```
-## multi-copy.py
+## window.py
+```
+```
+## crop_bounds.py
 ```
 ```
 ## interactive.py
 ```
 ```
-## dedupe.py
+## facesort.py
 ```
 ```
-## convert.py
+## sort-color.py
+```
+```
+## multicrop.py
 ```
 ```
 ## list-remove.py
@@ -55,7 +46,13 @@ optional arguments:
   --file_extension FILE_EXTENSION
                         file extension ["png","jpg"] (default: png)
 ```
-## extract-imgs-pdf.py
+## dataset-tools.py
+```
+```
+## dedupe.py
+```
+```
+## rotate.py
 ```
 ```
 ## zfill.py
@@ -70,12 +67,15 @@ positional arguments:
 optional arguments:
   -h, --help  show this help message and exit
 ```
-## facesort.py
+## multi-copy.py
+```
+```
+## convert.py
+```
+```
+## extract-imgs-pdf.py
 ```
 ```
 ## obj_detect_cropper.py
-```
-```
-## dataset-tools.py
 ```
 ```
