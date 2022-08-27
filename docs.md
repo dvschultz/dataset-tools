@@ -1,6 +1,30 @@
 # Generated Docs 📜
 ⚠️ Do not modify this file because it will be overwritten automatically
-## sort.py
+## multi-copy.py
+```
+```
+## zfill.py
+```
+usage: zfill.py [-h] path
+
+Ensure zero padding in numbering of files.
+
+positional arguments:
+  path        path to the directory containing the files
+
+optional arguments:
+  -h, --help  show this help message and exit
+```
+## extract-imgs-pdf.py
+```
+```
+## facesort.py
+```
+```
+## dedupe.py
+```
+```
+## multicrop.py
 ```
 ```
 ## psd.py
@@ -9,19 +33,10 @@
 ## window.py
 ```
 ```
-## crop_bounds.py
+## dataset-tools.py
 ```
 ```
-## interactive.py
-```
-```
-## facesort.py
-```
-```
-## sort-color.py
-```
-```
-## multicrop.py
+## convert.py
 ```
 ```
 ## list-remove.py
@@ -46,36 +61,24 @@ optional arguments:
   --file_extension FILE_EXTENSION
                         file extension ["png","jpg"] (default: png)
 ```
-## dataset-tools.py
+## crop_bounds.py
 ```
 ```
-## dedupe.py
+## openpose_face_cropper.py
 ```
 ```
 ## rotate.py
 ```
 ```
-## zfill.py
-```
-usage: zfill.py [-h] path
-
-Ensure zero padding in numbering of files.
-
-positional arguments:
-  path        path to the directory containing the files
-
-optional arguments:
-  -h, --help  show this help message and exit
-```
-## multi-copy.py
-```
-```
-## convert.py
-```
-```
-## extract-imgs-pdf.py
+## interactive.py
 ```
 ```
 ## obj_detect_cropper.py
+```
+```
+## sort-color.py
+```
+```
+## sort.py
 ```
 ```
