@@ -1,0 +1,3 @@
+scenedetect[opencv]
+opencv-python
+numpy
