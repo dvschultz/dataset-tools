@@ -8,3 +8,18 @@ lpips
 PyMuPDF
 scikit-learn
 scikit-image
+
+# human_filter_unique.py dependencies
+torch>=2.0.0
+torchvision
+transformers>=4.30.0
+ultralytics>=8.0.0
+tqdm
+pillow
+scikit-learn-extra
+
+# Optional: additional human/text detectors
+# moondream              # VLM for hybrid human detection
+# paddlepaddle           # PaddleOCR backend
+# paddleocr              # Fast text detection
+# easyocr                # Accurate text detection (slow)
