@@ -437,10 +437,10 @@ class PaddleOCRTextDetector:
         self.verbose = verbose
 
         # Initialize PaddleOCR (detection only mode for speed)
-        use_gpu = device == 'cuda'
+        # GPU is auto-detected based on paddlepaddle-gpu installation
         if verbose:
-            print(f"Loading PaddleOCR (GPU: {use_gpu})...")
-        self.ocr = PaddleOCR(use_angle_cls=False, lang='en', use_gpu=use_gpu)
+            print("Loading PaddleOCR...")
+        self.ocr = PaddleOCR(use_angle_cls=False, lang='en')
 
     def detect_text(self, image_path):
         """Returns True if text is detected in the image."""
