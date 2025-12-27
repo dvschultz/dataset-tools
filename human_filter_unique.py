@@ -22,8 +22,13 @@ def parse_args():
     Additional filters:
     - --exclude_text: Remove images containing text (uses EasyOCR)
 
-    After filtering, it finds the most unique images using embeddings (CLIP or DINOv2)
-    with Farthest Point Sampling for diversity selection.
+    After filtering, it finds the most unique images using embeddings:
+    - CLIP: Semantic similarity (what's in the image)
+    - DINOv2: Semantic features from self-supervised learning
+    - LPIPS: Perceptual similarity (low-level visual differences)
+    - Hybrid: CLIP + LPIPS combined (recommended for video frames)
+
+    Selection uses Farthest Point Sampling for diversity.
     """
     parser = argparse.ArgumentParser(description=desc, formatter_class=argparse.RawDescriptionHelpFormatter)
 
@@ -90,8 +95,12 @@ def parse_args():
     # Embedding options
     parser.add_argument('--embedder', type=str,
         default='clip',
-        choices=['clip', 'dinov2'],
-        help='Embedding model for uniqueness: "clip" or "dinov2". (default: %(default)s)')
+        choices=['clip', 'dinov2', 'lpips', 'hybrid'],
+        help='Embedding model for uniqueness: "clip" (semantic), "dinov2" (semantic), "lpips" (perceptual), or "hybrid" (CLIP+LPIPS combined). (default: %(default)s)')
+
+    parser.add_argument('--clip_weight', type=float,
+        default=0.5,
+        help='Weight for CLIP in hybrid mode (0.0-1.0). Higher = more semantic, lower = more perceptual. (default: %(default)s)')
 
     parser.add_argument('--num_unique', type=int,
         default=100,
@@ -113,12 +122,18 @@ def parse_args():
         help='Batch size for embedding extraction. (default: %(default)s)')
 
     # Caching options
+    parser.add_argument('--cache_detections', action='store_true',
+        help='Cache human/text detection results to disk for reuse on subsequent runs.')
+
     parser.add_argument('--cache_embeddings', action='store_true',
         help='Cache embeddings to disk for reuse.')
 
     parser.add_argument('--cache_dir', type=str,
-        default='./.embedding_cache/',
-        help='Directory for embedding cache. (default: %(default)s)')
+        default='./.detection_cache/',
+        help='Directory for detection and embedding cache. (default: %(default)s)')
+
+    parser.add_argument('--clear_cache', action='store_true',
+        help='Clear detection cache before running (start fresh).')
 
     # Filtering direction
     parser.add_argument('--keep', type=str,
@@ -565,6 +580,106 @@ class MoondreamTextDetector:
         return results
 
 
+class DetectionCache:
+    """Cache for storing detection results (human detection, text detection)."""
+
+    def __init__(self, cache_dir, verbose=False):
+        self.cache_dir = Path(cache_dir)
+        self.cache_dir.mkdir(parents=True, exist_ok=True)
+        self.human_cache_file = self.cache_dir / "human_detections.json"
+        self.text_cache_file = self.cache_dir / "text_detections.json"
+        self.verbose = verbose
+        self._human_cache = None
+        self._text_cache = None
+
+    def _load_cache(self, cache_file):
+        """Load cache from disk."""
+        if cache_file.exists():
+            with open(cache_file, 'r') as f:
+                return json.load(f)
+        return {}
+
+    def _save_cache(self, cache_file, cache_data):
+        """Save cache to disk."""
+        with open(cache_file, 'w') as f:
+            json.dump(cache_data, f, indent=2)
+
+    def _get_file_key(self, file_path):
+        """Generate a cache key from file path and modification time."""
+        stat = os.stat(file_path)
+        # Use absolute path + mtime to detect file changes
+        return f"{os.path.abspath(file_path)}|{stat.st_mtime}"
+
+    def get_human_cache(self):
+        """Get human detection cache, loading from disk if needed."""
+        if self._human_cache is None:
+            self._human_cache = self._load_cache(self.human_cache_file)
+            if self.verbose and self._human_cache:
+                print(f"Loaded {len(self._human_cache)} cached human detections")
+        return self._human_cache
+
+    def get_text_cache(self):
+        """Get text detection cache, loading from disk if needed."""
+        if self._text_cache is None:
+            self._text_cache = self._load_cache(self.text_cache_file)
+            if self.verbose and self._text_cache:
+                print(f"Loaded {len(self._text_cache)} cached text detections")
+        return self._text_cache
+
+    def get_human_detection(self, file_path):
+        """Get cached human detection result for a file."""
+        cache = self.get_human_cache()
+        key = self._get_file_key(file_path)
+        return cache.get(key)
+
+    def set_human_detection(self, file_path, has_human):
+        """Cache human detection result for a file."""
+        cache = self.get_human_cache()
+        key = self._get_file_key(file_path)
+        cache[key] = {"path": file_path, "has_human": has_human}
+
+    def get_text_detection(self, file_path):
+        """Get cached text detection result for a file."""
+        cache = self.get_text_cache()
+        key = self._get_file_key(file_path)
+        return cache.get(key)
+
+    def set_text_detection(self, file_path, has_text):
+        """Cache text detection result for a file."""
+        cache = self.get_text_cache()
+        key = self._get_file_key(file_path)
+        cache[key] = {"path": file_path, "has_text": has_text}
+
+    def save_human_cache(self):
+        """Save human detection cache to disk."""
+        if self._human_cache is not None:
+            self._save_cache(self.human_cache_file, self._human_cache)
+            if self.verbose:
+                print(f"Saved {len(self._human_cache)} human detections to cache")
+
+    def save_text_cache(self):
+        """Save text detection cache to disk."""
+        if self._text_cache is not None:
+            self._save_cache(self.text_cache_file, self._text_cache)
+            if self.verbose:
+                print(f"Saved {len(self._text_cache)} text detections to cache")
+
+    def clear(self):
+        """Clear all caches."""
+        if self.human_cache_file.exists():
+            os.remove(self.human_cache_file)
+        if self.text_cache_file.exists():
+            os.remove(self.text_cache_file)
+        self._human_cache = None
+        self._text_cache = None
+
+    def get_stats(self):
+        """Get cache statistics."""
+        human_count = len(self.get_human_cache())
+        text_count = len(self.get_text_cache())
+        return {"human_detections": human_count, "text_detections": text_count}
+
+
 class CLIPEmbedder:
     """CLIP-based image embedder."""
 
@@ -653,6 +768,122 @@ class DINOv2Embedder:
                 embeddings.append(cls_embeddings.cpu().numpy())
 
         return np.vstack(embeddings)
+
+
+class LPIPSEmbedder:
+    """LPIPS-based perceptual embedder using VGG features."""
+
+    def __init__(self, device='cpu', verbose=False):
+        import torch
+        import lpips
+
+        self.device = device
+        self.verbose = verbose
+
+        if verbose:
+            print("Loading LPIPS (VGG) model for perceptual features...")
+
+        # Use VGG network for perceptual features
+        self.model = lpips.LPIPS(net='vgg', verbose=False)
+        self.model.to(device)
+        self.model.eval()
+
+    def embed(self, image_paths, batch_size=16, show_progress=True):
+        """Extract VGG perceptual features for a list of images."""
+        import torch
+        from PIL import Image
+        import torchvision.transforms as transforms
+
+        # LPIPS expects images in [-1, 1] range
+        transform = transforms.Compose([
+            transforms.Resize((224, 224)),
+            transforms.ToTensor(),
+            transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])
+        ])
+
+        embeddings = []
+
+        iterator = range(0, len(image_paths), batch_size)
+        if show_progress:
+            iterator = tqdm(iterator, desc="Extracting LPIPS (VGG) features")
+
+        with torch.no_grad():
+            for i in iterator:
+                batch_paths = image_paths[i:i+batch_size]
+                images = []
+                for p in batch_paths:
+                    img = Image.open(p).convert('RGB')
+                    images.append(transform(img))
+
+                batch = torch.stack(images).to(self.device)
+
+                # Get intermediate VGG features from LPIPS
+                # We access the internal feature extraction
+                features = self.model.net.forward(batch)
+
+                # Concatenate features from different layers and flatten
+                # LPIPS uses 5 layers, we'll use all of them for rich representation
+                feat_list = []
+                for feat in features:
+                    # Global average pool each feature map
+                    pooled = torch.nn.functional.adaptive_avg_pool2d(feat, 1).flatten(1)
+                    feat_list.append(pooled)
+
+                combined = torch.cat(feat_list, dim=1)
+                # Normalize
+                combined = combined / (combined.norm(dim=-1, keepdim=True) + 1e-8)
+
+                embeddings.append(combined.cpu().numpy())
+
+                # Clear MPS cache between batches
+                if self.device == 'mps':
+                    torch.mps.empty_cache()
+
+        return np.vstack(embeddings)
+
+
+class HybridCLIPLPIPSEmbedder:
+    """Hybrid embedder combining CLIP (semantic) + LPIPS (perceptual) features."""
+
+    def __init__(self, device='cpu', verbose=False, clip_weight=0.5):
+        self.device = device
+        self.verbose = verbose
+        self.clip_weight = clip_weight  # Weight for CLIP features (1-weight for LPIPS)
+
+        if verbose:
+            print(f"Loading hybrid embedder (CLIP weight: {clip_weight}, LPIPS weight: {1-clip_weight})...")
+
+        self.clip_embedder = CLIPEmbedder(device, verbose=False)
+        self.lpips_embedder = LPIPSEmbedder(device, verbose=False)
+
+    def embed(self, image_paths, batch_size=16, show_progress=True):
+        """Extract combined CLIP + LPIPS embeddings."""
+        if self.verbose:
+            print("Extracting CLIP embeddings...")
+        clip_embeddings = self.clip_embedder.embed(image_paths, batch_size, show_progress)
+
+        # Clear memory between models
+        clear_memory(self.verbose)
+
+        if self.verbose:
+            print("Extracting LPIPS (VGG) embeddings...")
+        lpips_embeddings = self.lpips_embedder.embed(image_paths, batch_size, show_progress)
+
+        # Combine embeddings with weighting
+        # Both are already normalized, so we weight and renormalize
+        combined = np.concatenate([
+            clip_embeddings * self.clip_weight,
+            lpips_embeddings * (1 - self.clip_weight)
+        ], axis=1)
+
+        # Normalize the combined embedding
+        norms = np.linalg.norm(combined, axis=1, keepdims=True)
+        combined = combined / (norms + 1e-8)
+
+        if self.verbose:
+            print(f"Combined embedding dimension: {combined.shape[1]}")
+
+        return combined
 
 
 class EmbeddingCache:
@@ -812,6 +1043,18 @@ def main():
         print("No images found. Exiting.")
         return
 
+    # Initialize detection cache
+    detection_cache = None
+    if args.cache_detections:
+        detection_cache = DetectionCache(args.cache_dir, args.verbose)
+        if args.clear_cache:
+            print("Clearing detection cache...")
+            detection_cache.clear()
+        else:
+            stats = detection_cache.get_stats()
+            if stats['human_detections'] > 0 or stats['text_detections'] > 0:
+                print(f"Detection cache: {stats['human_detections']} human, {stats['text_detections']} text detections")
+
     # Phase 1: Human Detection
     non_human_paths = image_paths
     human_paths = []
@@ -819,21 +1062,52 @@ def main():
     if args.mode in ['full', 'human_filter']:
         print("\n=== Phase 1: Human Detection ===")
 
-        # Initialize detector
-        if args.human_detector == 'yolo':
-            detector = YOLODetector(args.yolo_model, args.yolo_confidence, device, args.verbose)
-            results = detector.detect_batch(image_paths, batch_size=args.yolo_batch_size)
-        elif args.human_detector == 'moondream':
-            detector = MoondreamDetector(args.moondream_model, device, args.verbose)
-            results = {}
-            for path in tqdm(image_paths, desc="Moondream detection"):
-                results[path] = detector.detect_human(path)
-        else:  # hybrid
-            detector = HybridDetector(
-                args.yolo_model, args.yolo_confidence,
-                args.moondream_model, device, args.verbose
-            )
-            results = detector.detect_batch(image_paths, batch_size=args.yolo_batch_size)
+        results = {}
+        paths_to_detect = []
+
+        # Check cache for already-processed images
+        if detection_cache:
+            for path in image_paths:
+                cached = detection_cache.get_human_detection(path)
+                if cached is not None:
+                    results[path] = cached['has_human']
+                else:
+                    paths_to_detect.append(path)
+            if len(image_paths) - len(paths_to_detect) > 0:
+                print(f"  Using {len(image_paths) - len(paths_to_detect)} cached results, detecting {len(paths_to_detect)} new images")
+        else:
+            paths_to_detect = image_paths
+
+        # Run detection on uncached images
+        if paths_to_detect:
+            if args.human_detector == 'yolo':
+                detector = YOLODetector(args.yolo_model, args.yolo_confidence, device, args.verbose)
+                new_results = detector.detect_batch(paths_to_detect, batch_size=args.yolo_batch_size)
+            elif args.human_detector == 'moondream':
+                detector = MoondreamDetector(args.moondream_model, device, args.verbose)
+                new_results = {}
+                for path in tqdm(paths_to_detect, desc="Moondream detection"):
+                    new_results[path] = detector.detect_human(path)
+            else:  # hybrid
+                detector = HybridDetector(
+                    args.yolo_model, args.yolo_confidence,
+                    args.moondream_model, device, args.verbose
+                )
+                new_results = detector.detect_batch(paths_to_detect, batch_size=args.yolo_batch_size)
+
+            # Update results and cache
+            for path, has_human in new_results.items():
+                results[path] = has_human
+                if detection_cache:
+                    detection_cache.set_human_detection(path, has_human)
+
+            # Save cache after detection
+            if detection_cache:
+                detection_cache.save_human_cache()
+
+            # Free memory
+            del detector
+            clear_memory(args.verbose)
 
         # Separate results
         human_paths = [p for p, has_human in results.items() if has_human]
@@ -858,10 +1132,6 @@ def main():
         print(f"\nKeeping: {len(kept_paths)} images ({kept_label})")
         print(f"Discarding: {len(discarded_paths)} images ({discarded_label})")
 
-        # Free memory from human detection models
-        del detector
-        clear_memory(args.verbose)
-
     # Phase 1.5: Text Detection (optional)
     text_paths = []
     if args.exclude_text and args.mode in ['full', 'human_filter']:
@@ -870,22 +1140,54 @@ def main():
         # Use kept_paths if we did human filtering, otherwise all images
         paths_to_check = kept_paths if args.mode in ['full', 'human_filter'] else image_paths
 
-        if args.text_detector == 'east':
-            text_detector = EASTTextDetector(
-                args.text_confidence, args.min_text_area, device, args.verbose
-            )
-        elif args.text_detector == 'paddleocr':
-            text_detector = PaddleOCRTextDetector(
-                args.text_confidence, args.min_text_area, device, args.verbose
-            )
-        elif args.text_detector == 'easyocr':
-            text_detector = EasyOCRTextDetector(
-                args.text_confidence, args.min_text_area, device, args.verbose
-            )
-        else:  # moondream
-            text_detector = MoondreamTextDetector(args.moondream_model, device, args.verbose)
+        text_results = {}
+        paths_to_detect = []
 
-        text_results = text_detector.detect_batch(paths_to_check)
+        # Check cache for already-processed images
+        if detection_cache:
+            for path in paths_to_check:
+                cached = detection_cache.get_text_detection(path)
+                if cached is not None:
+                    text_results[path] = cached['has_text']
+                else:
+                    paths_to_detect.append(path)
+            if len(paths_to_check) - len(paths_to_detect) > 0:
+                print(f"  Using {len(paths_to_check) - len(paths_to_detect)} cached results, detecting {len(paths_to_detect)} new images")
+        else:
+            paths_to_detect = paths_to_check
+
+        # Run detection on uncached images
+        if paths_to_detect:
+            if args.text_detector == 'east':
+                text_detector = EASTTextDetector(
+                    args.text_confidence, args.min_text_area, device, args.verbose
+                )
+            elif args.text_detector == 'paddleocr':
+                text_detector = PaddleOCRTextDetector(
+                    args.text_confidence, args.min_text_area, device, args.verbose
+                )
+            elif args.text_detector == 'easyocr':
+                text_detector = EasyOCRTextDetector(
+                    args.text_confidence, args.min_text_area, device, args.verbose
+                )
+            else:  # moondream
+                text_detector = MoondreamTextDetector(args.moondream_model, device, args.verbose)
+
+            new_results = text_detector.detect_batch(paths_to_detect)
+
+            # Update results and cache
+            for path, has_text in new_results.items():
+                text_results[path] = has_text
+                if detection_cache:
+                    detection_cache.set_text_detection(path, has_text)
+
+            # Save cache after detection
+            if detection_cache:
+                detection_cache.save_text_cache()
+
+            # Free memory from text detection models
+            del text_detector
+            clear_memory(args.verbose)
 
         # Separate images with and without text
         text_paths = [p for p, has_text in text_results.items() if has_text]
@@ -900,10 +1202,6 @@ def main():
         discarded_paths = discarded_paths + text_paths
 
         print(f"\nAfter text filtering: {len(kept_paths)} images remaining")
-
-        # Free memory from text detection models
-        del text_detector
-        clear_memory(args.verbose)
 
     # Save discarded images if requested
     if args.mode in ['full', 'human_filter'] and args.save_discarded and discarded_paths:
@@ -960,8 +1258,12 @@ def main():
             if embeddings is None:
                 if args.embedder == 'clip':
                     embedder = CLIPEmbedder(device, args.verbose)
-                else:
+                elif args.embedder == 'dinov2':
                     embedder = DINOv2Embedder(device, args.verbose)
+                elif args.embedder == 'lpips':
+                    embedder = LPIPSEmbedder(device, args.verbose)
+                else:  # hybrid
+                    embedder = HybridCLIPLPIPSEmbedder(device, args.verbose, args.clip_weight)
 
                 embeddings = embedder.embed(candidate_paths, args.batch_size)
 
