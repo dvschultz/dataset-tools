@@ -235,21 +235,39 @@ class YOLODetector:
 
 
 class MoondreamDetector:
-    """Moondream2 VLM-based human detector."""
+    """Moondream2 VLM-based human detector using transformers."""
 
     def __init__(self, model_name='moondream-2b-int8', device='cpu', verbose=False):
-        import moondream as md
-        self.model = md.vl(model=model_name)
+        import torch
+        from transformers import AutoModelForCausalLM, AutoTokenizer
+
         self.device = device
         self.verbose = verbose
         self.prompt = "Is there a human, person, or human body visible in this image? Answer only 'yes' or 'no'."
+
+        if verbose:
+            print("Loading Moondream2 model from HuggingFace...")
+
+        # Use the HuggingFace transformers version
+        model_id = "vikhyatk/moondream2"
+        self.tokenizer = AutoTokenizer.from_pretrained(model_id, trust_remote_code=True)
+        self.model = AutoModelForCausalLM.from_pretrained(
+            model_id,
+            trust_remote_code=True,
+            torch_dtype=torch.float16 if device != 'cpu' else torch.float32,
+            device_map={"": device} if device != 'cpu' else None
+        )
+        if device == 'cpu':
+            self.model = self.model.to(device)
+        self.model.eval()
 
     def detect_human(self, image_path):
         """Returns True if a human is detected in the image."""
         from PIL import Image
 
         image = Image.open(image_path).convert('RGB')
-        answer = self.model.query(image, self.prompt)['answer'].strip().lower()
+        enc_image = self.model.encode_image(image)
+        answer = self.model.answer_question(enc_image, self.prompt, self.tokenizer).strip().lower()
 
         has_human = answer.startswith('yes')
         if self.verbose and has_human:
@@ -545,22 +563,39 @@ class EasyOCRTextDetector:
 
 
 class MoondreamTextDetector:
-    """Moondream2 VLM-based text detector."""
+    """Moondream2 VLM-based text detector using transformers."""
 
     def __init__(self, model_name='moondream-2b-int8', device='cpu', verbose=False):
-        import moondream as md
+        import torch
+        from transformers import AutoModelForCausalLM, AutoTokenizer
 
-        self.model = md.vl(model=model_name)
         self.device = device
         self.verbose = verbose
         self.prompt = "Is there any text, words, letters, or numbers visible in this image? Answer only 'yes' or 'no'."
+
+        if verbose:
+            print("Loading Moondream2 model from HuggingFace...")
+
+        # Use the HuggingFace transformers version
+        model_id = "vikhyatk/moondream2"
+        self.tokenizer = AutoTokenizer.from_pretrained(model_id, trust_remote_code=True)
+        self.model = AutoModelForCausalLM.from_pretrained(
+            model_id,
+            trust_remote_code=True,
+            torch_dtype=torch.float16 if device != 'cpu' else torch.float32,
+            device_map={"": device} if device != 'cpu' else None
+        )
+        if device == 'cpu':
+            self.model = self.model.to(device)
+        self.model.eval()
 
     def detect_text(self, image_path):
         """Returns True if text is detected in the image."""
         from PIL import Image
 
         image = Image.open(image_path).convert('RGB')
-        answer = self.model.query(image, self.prompt)['answer'].strip().lower()
+        enc_image = self.model.encode_image(image)
+        answer = self.model.answer_question(enc_image, self.prompt, self.tokenizer).strip().lower()
 
         has_text = answer.startswith('yes')
         if self.verbose and has_text:

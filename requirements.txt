@@ -19,6 +19,6 @@ pillow
 scikit-learn-extra
 
 # Optional: additional detectors
-# moondream              # VLM for hybrid human detection
 easyocr                  # GPU text detection (recommended)
 # paddlepaddle paddleocr # Alternative text detection (version issues)
+# Moondream uses transformers (already installed) - no extra package needed
