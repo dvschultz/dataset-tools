@@ -441,7 +441,7 @@ class PaddleOCRTextDetector:
         if verbose:
             print(f"Loading PaddleOCR (GPU: {use_gpu})...")
         self.ocr = PaddleOCR(use_angle_cls=False, lang='en', use_gpu=use_gpu,
-                             show_log=False, det_db_score_mode='slow')
+                             show_log=False)
 
     def detect_text(self, image_path):
         """Returns True if text is detected in the image."""
