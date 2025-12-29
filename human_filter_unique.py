@@ -75,6 +75,15 @@ def parse_args():
         default='moondream-2b-int8',
         help='Moondream model variant. Options: moondream-2b-int8, moondream-2b-fp16 (default: %(default)s)')
 
+    # Hybrid detector confidence zones
+    parser.add_argument('--hybrid_high_threshold', type=float,
+        default=0.5,
+        help='YOLO confidence above this = definitely human, skip Moondream. (default: %(default)s)')
+
+    parser.add_argument('--hybrid_low_threshold', type=float,
+        default=0.1,
+        help='YOLO confidence below this = definitely no human, skip Moondream. (default: %(default)s)')
+
     # Text detection options
     parser.add_argument('--exclude_text', action='store_true',
         help='Exclude images containing text.')
@@ -203,6 +212,20 @@ class YOLODetector:
                     return True
         return False
 
+    def detect_human_with_confidence(self, image_path, min_conf=0.01):
+        """Returns max confidence score for person detection (0.0 if no person found)."""
+        results = self.model(image_path, conf=min_conf, device=self.device, verbose=False)
+
+        max_conf = 0.0
+        for result in results:
+            if result.boxes is not None:
+                classes = result.boxes.cls.cpu().numpy()
+                confidences = result.boxes.conf.cpu().numpy()
+                for cls, conf in zip(classes, confidences):
+                    if cls == self.person_class and conf > max_conf:
+                        max_conf = float(conf)
+        return max_conf
+
     def detect_batch(self, image_paths, batch_size=16, show_progress=True):
         """Batch detection for multiple images. Returns dict of {path: has_human}."""
         results_dict = {}
@@ -225,6 +248,35 @@ class YOLODetector:
                         if self.verbose:
                             print(f"\t[YOLO] Human detected in {os.path.basename(path)}")
                 results_dict[path] = has_human
+
+            # Clear MPS cache between batches
+            if self.device == 'mps':
+                import torch
+                torch.mps.empty_cache()
+
+        return results_dict
+
+    def detect_batch_with_confidence(self, image_paths, batch_size=16, min_conf=0.01, show_progress=True):
+        """Batch detection returning confidence scores. Returns dict of {path: max_confidence}."""
+        results_dict = {}
+
+        iterator = range(0, len(image_paths), batch_size)
+        if show_progress:
+            iterator = tqdm(iterator, desc="YOLO detection", total=(len(image_paths) + batch_size - 1) // batch_size)
+
+        for i in iterator:
+            batch_paths = image_paths[i:i+batch_size]
+            results = self.model(batch_paths, conf=min_conf, device=self.device, verbose=False)
+
+            for result, path in zip(results, batch_paths):
+                max_conf = 0.0
+                if result.boxes is not None:
+                    classes = result.boxes.cls.cpu().numpy()
+                    confidences = result.boxes.conf.cpu().numpy()
+                    for cls, conf in zip(classes, confidences):
+                        if cls == self.person_class and conf > max_conf:
+                            max_conf = float(conf)
+                results_dict[path] = max_conf
 
             # Clear MPS cache between batches
             if self.device == 'mps':
@@ -277,16 +329,25 @@ class MoondreamDetector:
 
 
 class HybridDetector:
-    """Two-pass detector: YOLO first, Moondream fallback for edge cases."""
+    """Two-pass detector: YOLO first, Moondream for uncertain cases only.
+
+    Uses confidence zones:
+    - High confidence (>=high_threshold): Definitely human
+    - Uncertain (between low and high): Ask Moondream
+    - Low confidence (<low_threshold): Definitely no human, skip Moondream
+    """
 
     def __init__(self, yolo_model='yolo11n.pt', yolo_confidence=0.25,
-                 moondream_model='moondream-2b-int8', device='cpu', verbose=False):
+                 moondream_model='moondream-2b-int8', device='cpu', verbose=False,
+                 high_threshold=0.5, low_threshold=0.1):
         self.yolo = YOLODetector(yolo_model, yolo_confidence, device, verbose)
         self.moondream = None  # Lazy load
         self.moondream_model = moondream_model
         self.device = device
         self.verbose = verbose
         self._moondream_loaded = False
+        self.high_threshold = high_threshold  # Above this = definitely human
+        self.low_threshold = low_threshold    # Below this = definitely no human
 
     def _ensure_moondream(self):
         if not self._moondream_loaded:
@@ -296,39 +357,64 @@ class HybridDetector:
             self._moondream_loaded = True
 
     def detect_human(self, image_path):
-        """Two-pass detection: YOLO first, Moondream if YOLO says no human."""
-        # First pass: YOLO
-        if self.yolo.detect_human(image_path):
-            return True
+        """Two-pass detection with confidence zones."""
+        # Get YOLO confidence
+        conf = self.yolo.detect_human_with_confidence(image_path, min_conf=0.01)
 
-        # Second pass: Moondream for edge cases
-        self._ensure_moondream()
-        return self.moondream.detect_human(image_path)
+        if conf >= self.high_threshold:
+            if self.verbose:
+                print(f"\t[YOLO] High confidence ({conf:.2f}) human in {os.path.basename(image_path)}")
+            return True
+        elif conf < self.low_threshold:
+            if self.verbose:
+                print(f"\t[YOLO] Low confidence ({conf:.2f}), skipping Moondream for {os.path.basename(image_path)}")
+            return False
+        else:
+            # Uncertain zone - ask Moondream
+            if self.verbose:
+                print(f"\t[YOLO] Uncertain ({conf:.2f}), checking with Moondream...")
+            self._ensure_moondream()
+            return self.moondream.detect_human(image_path)
 
     def detect_batch(self, image_paths, batch_size=16, show_progress=True):
-        """Batch detection with two-pass approach."""
+        """Batch detection with confidence zones."""
         results = {}
 
-        # First pass: YOLO (fast)
+        # First pass: YOLO with confidence scores
         if self.verbose:
-            print("Pass 1: YOLO detection...")
-        yolo_results = self.yolo.detect_batch(image_paths, batch_size=batch_size, show_progress=show_progress)
+            print("Pass 1: YOLO detection with confidence scores...")
+        yolo_conf = self.yolo.detect_batch_with_confidence(
+            image_paths, batch_size=batch_size, min_conf=0.01, show_progress=show_progress
+        )
 
-        # Separate humans from non-humans
-        humans = [p for p, has_human in yolo_results.items() if has_human]
-        non_humans = [p for p, has_human in yolo_results.items() if not has_human]
+        # Categorize by confidence zones
+        high_conf = []      # Definitely human
+        uncertain = []      # Need Moondream
+        low_conf = []       # Definitely no human
 
-        # Mark YOLO-detected humans
-        for path in humans:
-            results[path] = True
+        for path, conf in yolo_conf.items():
+            if conf >= self.high_threshold:
+                high_conf.append(path)
+                results[path] = True
+            elif conf < self.low_threshold:
+                low_conf.append(path)
+                results[path] = False
+            else:
+                uncertain.append(path)
 
-        # Second pass: Moondream on YOLO non-humans
-        if non_humans:
+        if self.verbose:
+            print(f"\nConfidence zones:")
+            print(f"  High (>={self.high_threshold}): {len(high_conf)} images → human")
+            print(f"  Uncertain ({self.low_threshold}-{self.high_threshold}): {len(uncertain)} images → ask Moondream")
+            print(f"  Low (<{self.low_threshold}): {len(low_conf)} images → no human")
+
+        # Second pass: Moondream only on uncertain cases
+        if uncertain:
             if self.verbose:
-                print(f"Pass 2: Moondream fallback on {len(non_humans)} images...")
+                print(f"\nPass 2: Moondream on {len(uncertain)} uncertain images...")
             self._ensure_moondream()
 
-            iterator = tqdm(non_humans, desc="Moondream check") if show_progress else non_humans
+            iterator = tqdm(uncertain, desc="Moondream check") if show_progress else uncertain
             for path in iterator:
                 results[path] = self.moondream.detect_human(path)
 
@@ -1125,7 +1211,9 @@ def main():
             else:  # hybrid
                 detector = HybridDetector(
                     args.yolo_model, args.yolo_confidence,
-                    args.moondream_model, device, args.verbose
+                    args.moondream_model, device, args.verbose,
+                    high_threshold=args.hybrid_high_threshold,
+                    low_threshold=args.hybrid_low_threshold
                 )
                 new_results = detector.detect_batch(paths_to_detect, batch_size=args.yolo_batch_size)
 
