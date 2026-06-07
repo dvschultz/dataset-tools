@@ -103,3 +103,26 @@ venv.bak/
 
 # mypy
 .mypy_cache/
+
+# Media files (video/audio source material — not tracked)
+*.mp4
+*.MP4
+*.mkv
+*.mov
+*.avi
+*.webm
+*.m4v
+*.mpg
+*.mpeg
+*.flv
+*.wmv
+*.h264
+*.m3u8
+*.ts
+*.wav
+*.mp3
+*.aac
+*.flac
+*.m4a
+*.ogg
+*.aiff
