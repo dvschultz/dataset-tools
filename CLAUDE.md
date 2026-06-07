@@ -56,6 +56,18 @@ python obj_detect_cropper.py --input_folder path/to/input/ --output_folder path/
 python openpose_face_cropper.py --input_folder path/to/input/ --output_folder path/to/output/
 ```
 
+### Human detection + uniqueness filtering (ML pipeline)
+```bash
+python human_filter_unique.py --input_folder path/to/input/ --output_folder path/to/output/ \
+  --human_detector hybrid --keep humans --embedder hybrid --num_unique 200 --cache_embeddings
+```
+
+### Video scene detection (subproject)
+```bash
+cd scenedetect && pip install -r requirements.txt
+python scene_detect_multiresolution.py -i input_video.mov -o output_clips/
+```
+
 ## Architecture & Code Structure
 
 ### Independent Script Architecture
@@ -129,6 +141,20 @@ The `utils/load_images.py` module provides multi-threaded image loading:
 - Thread-safe queue-based architecture
 - Useful for loading large datasets efficiently
 
+### Deep-Learning Pipeline: human_filter_unique.py
+
+Unlike the OpenCV-only scripts, `human_filter_unique.py` is a GPU-oriented ML pipeline (PyTorch / Ultralytics / Transformers). It runs in three stages controlled by `--mode` (`full`, `human_filter`, `unique_only`):
+
+1. **Human filtering** (`--human_detector`): `yolo` (YOLO11, fast), `moondream` (Moondream2 VLM, catches artistic/stylized humans), or `hybrid` — YOLO first, with Moondream confirming only the ambiguous confidence band between `--hybrid_low_threshold` and `--hybrid_high_threshold`. `--keep humans|no_humans` sets which side to retain.
+2. **Optional text exclusion** (`--exclude_text`): drops images containing text via `--text_detector` (`east`, `easyocr` (recommended GPU path), `paddleocr`, `moondream`).
+3. **Uniqueness selection** (`--embedder`): embeds with `clip`, `dinov2`, `lpips`, or `hybrid` (CLIP+LPIPS), then picks the most diverse `--num_unique` images via `--selection_method` (`fps` = Farthest Point Sampling, or `kmedoids`).
+
+`--device` is `auto` (prefers CUDA, then MPS, then CPU). Expensive detection/embedding results are cached to `--cache_dir` when `--cache_detections`/`--cache_embeddings` are set (`--clear_cache` to invalidate). Moondream2 uses the HuggingFace `transformers` API, not a standalone package.
+
+### Video Subproject: scenedetect/
+
+`scenedetect/` is a self-contained tool (its own `requirements.txt` and `README.md`) for 8mm-film-oriented scene detection. `scene_detect_multiresolution.py` detects scenes on a downscaled proxy (480p) and applies frame-accurate cuts to the high-resolution original via FFmpeg, using a three-tier strategy (fast stream copy → accurate stream copy → re-encode fallback) and auto-converting ProRes/DNxHD for speed. Cut timestamps are saved to JSON/CSV for re-cutting originals later. Requires `ffmpeg`/`ffprobe` on PATH.
+
 ### Auto-Documentation System
 
 The repository includes an auto-documentation workflow:
@@ -147,6 +173,7 @@ The repository includes an auto-documentation workflow:
 - `PyMuPDF`: PDF image extraction
 - `psd-tools3`: PSD file support
 - `mac-tag`: macOS file tagging (macOS only)
+- `torch` / `torchvision`, `ultralytics` (YOLO11), `transformers` (Moondream2/CLIP/DINOv2), `easyocr`, `scikit-learn-extra`: used only by `human_filter_unique.py`. These are heavy GPU deps — the OpenCV-only scripts do not need them.
 
 ## Important Notes for Development
 
