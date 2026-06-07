@@ -2,11 +2,9 @@ import argparse
 import numpy as np
 import scipy.ndimage as pyimg
 import os
-import imutils
 import cv2
 import random
-
-# print(cv2.__version__)
+from concurrent.futures import ThreadPoolExecutor
 
 def parse_args():
 	desc = "Tools to normalize an image dataset" 
@@ -14,6 +12,18 @@ def parse_args():
 
 	parser.add_argument('--verbose', action='store_true',
 		help='Print progress to console.')
+
+	parser.add_argument('--workers', type=int,
+		default=0,
+		help='Parallel worker threads for processing files. 0 = auto (all cores). 1 = serial. (default: %(default)s)')
+
+	parser.add_argument('--png_compression', type=int,
+		default=0,
+		help='PNG compression level 0-9. 0 = none/fastest CPU but largest files; higher = smaller files, less disk I/O. (default: %(default)s)')
+
+	parser.add_argument('--jpg_quality', type=int,
+		default=90,
+		help='JPEG quality 0-100 for jpg output. (default: %(default)s)')
 
 	parser.add_argument('--force_max', action='store_true',
 		help='Force max size')
@@ -96,10 +106,6 @@ def parse_args():
 		default='255,255,255',
 		help='border color to use with the `solid` border type; use bgr values (default: %(default)s)')
 
-	# parser.add_argument('--blur_size', type=int, 
-	# 	default=3,
-	# 	help='Blur size. For use with "canny" process. (default: %(default)s)')
-
 	parser.add_argument('--mirror', action='store_true',
 		help='Adds mirror augmentation.')
 
@@ -118,6 +124,29 @@ def parse_args():
 	args = parser.parse_args()
 	return args
 
+def ensure_output_dir(path):
+	"""Create output directory if it doesn't exist (thread-safe)."""
+	os.makedirs(path, exist_ok=True)
+
+def pick_interp(src_shape, dim):
+	"""Choose the fastest/highest-quality interpolation for a resize.
+
+	INTER_AREA is faster and sharper when shrinking; fall back to the
+	global `inter` (INTER_CUBIC) when upscaling.
+	"""
+	(h, w) = src_shape[:2]
+	if dim[0] * dim[1] < w * h:
+		return cv2.INTER_AREA
+	return inter
+
+def get_border_type():
+	"""Get OpenCV border type from args.border_type."""
+	if args.border_type == 'solid':
+		return cv2.BORDER_CONSTANT
+	elif args.border_type == 'reflect':
+		return cv2.BORDER_REFLECT
+	else:
+		return cv2.BORDER_REPLICATE
 
 def image_resize(image, width = None, height = None, max = None):
     # initialize the dimensions of the image to be resized and
@@ -157,36 +186,43 @@ def image_resize(image, width = None, height = None, max = None):
 	        dim = (width, int(h * r))
 
     # resize the image
-    resized = cv2.resize(image, dim, interpolation = inter)
+    resized = cv2.resize(image, dim, interpolation = pick_interp(image.shape, dim))
 
     # return the resized image
     return resized
 
-def saveImage(img,path,filename):
+def saveImage(img, path, filename):
+	"""Save an image to disk with the specified file extension.
+
+	Args:
+		img: OpenCV image array to save
+		path: Directory path where the image will be saved
+		filename: Base filename (extension will be replaced based on args.file_extension)
+	"""
 	if(args.file_extension == "png"):
 		new_file = os.path.splitext(filename)[0] + ".png"
-		cv2.imwrite(os.path.join(path, new_file), img, [cv2.IMWRITE_PNG_COMPRESSION, 0])
+		cv2.imwrite(os.path.join(path, new_file), img, [cv2.IMWRITE_PNG_COMPRESSION, args.png_compression])
 	elif(args.file_extension == "jpg"):
 		new_file = os.path.splitext(filename)[0] + ".jpg"
-		cv2.imwrite(os.path.join(path, new_file), img, [cv2.IMWRITE_JPEG_QUALITY, 90])
+		cv2.imwrite(os.path.join(path, new_file), img, [cv2.IMWRITE_JPEG_QUALITY, args.jpg_quality])
 
 def image_scale(image, scalar = 1.0):
+	"""Scale an image by a scalar factor.
+
+	Args:
+		image: OpenCV image array
+		scalar: Scaling factor (default: 1.0)
+
+	Returns:
+		Scaled OpenCV image array
+	"""
 	(h, w) = image.shape[:2]
 	dim = (int(w*scalar),int(h*scalar))
-	# resize the image
-	resized = cv2.resize(image, dim, interpolation = inter)
-	
-	# return the resized image
+	resized = cv2.resize(image, dim, interpolation = pick_interp(image.shape, dim))
 	return resized
 
 def arbitrary_crop(img, h_crop,w_crop):
 	error = False
-	bType = cv2.BORDER_REPLICATE
-	if(args.border_type == 'solid'):
-		bType = cv2.BORDER_CONSTANT
-	elif (args.border_type == 'reflect'):
-		bType = cv2.BORDER_REFLECT
-
 	(h, w) = img.shape[:2]
 	if(h>h_crop):
 		hdiff = int((h-h_crop)/2) + args.shift_y
@@ -207,12 +243,19 @@ def arbitrary_crop(img, h_crop,w_crop):
 	return img, error
 
 def crop_to_square(img):
+	"""Crop an image to a square by removing edges based on alignment settings.
+
+	Args:
+		img: OpenCV image array
+
+	Returns:
+		Square-cropped OpenCV image array
+	"""
 	(h, w) = img.shape[:2]
-	
+
 	cropped = img.copy()
-	if w > h:	
+	if w > h:
 		if (args.h_align=='left'):
-			print('here first')
 			cropped = img[:h,:h]
 		elif (args.h_align=='right'):
 			cropped = img[0:h, w-h:w]
@@ -227,10 +270,19 @@ def crop_to_square(img):
 		else:
 			diff = int((h-w)/2)
 			cropped = img[diff:diff+w, 0:w]
-		
+
 	return cropped
 
 def crop_square_patch(img, imgSize):
+	"""Extract a random square patch from an image.
+
+	Args:
+		img: OpenCV image array
+		imgSize: Size of the square patch to extract
+
+	Returns:
+		Square patch of the specified size
+	"""
 	(h, w) = img.shape[:2]
 
 	rH = random.randint(0,h-imgSize)
@@ -240,6 +292,14 @@ def crop_square_patch(img, imgSize):
 	return cropped
 
 def processCanny(img):
+	"""Apply Canny edge detection with optional blur preprocessing.
+
+	Args:
+		img: OpenCV image array (BGR color)
+
+	Returns:
+		Grayscale edge-detected image
+	"""
 	gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
 	if(args.blur_type=='gaussian'):
@@ -252,14 +312,15 @@ def processCanny(img):
 
 def makeResize(img,filename,scale):
 	remakePath = args.output_folder + str(scale)+"/"
-	if not os.path.exists(remakePath):
-		os.makedirs(remakePath)
+	ensure_output_dir(remakePath)
 
-	img_copy = img.copy()
+	# cv2.resize / image_resize return a fresh array, so no defensive copy is
+	# needed here (saves a full-image memcpy per file).
 	if(args.height!=None and args.width!=None):
-		img_copy = cv2.resize(img_copy, (args.width,args.height), interpolation = inter)
+		dim = (args.width, args.height)
+		img_copy = cv2.resize(img, dim, interpolation = pick_interp(img.shape, dim))
 	else:
-		img_copy = image_resize(img_copy, max = scale)
+		img_copy = image_resize(img, max = scale)
 
 	saveImage(img_copy,remakePath,filename)
 	if (args.mirror): flipImage(img_copy,filename,remakePath)
@@ -267,11 +328,11 @@ def makeResize(img,filename,scale):
 
 def makeDistance(img,filename,scale):
 	makePath = args.output_folder + "distance-"+ str(args.max_size)+"/"
-	if not os.path.exists(makePath):
-		os.makedirs(makePath)
+	ensure_output_dir(makePath)
 
-	img_copy = img.copy()
-	img_copy = image_resize(img_copy, max = scale)
+	# image_resize returns a fresh array; the later in-place channel writes
+	# operate on that, so the source img is never mutated. No copy needed.
+	img_copy = image_resize(img, max = scale)
 
 	BW = img_copy[:,:,0] > 127
 	G_channel = pyimg.distance_transform_edt(BW)
@@ -281,92 +342,47 @@ def makeDistance(img,filename,scale):
 	img_copy[:,:,1] = G_channel.astype('uint8')
 	img_copy[:,:,0] = B_channel.astype('uint8')
 
-	if(args.file_extension == "png"):
-		new_file = os.path.splitext(filename)[0] + ".png"
-		cv2.imwrite(os.path.join(makePath, new_file), img_copy, [cv2.IMWRITE_PNG_COMPRESSION, 0])
-	elif(args.file_extension == "jpg"):
-		new_file = os.path.splitext(filename)[0] + ".jpg"
-		cv2.imwrite(os.path.join(makePath, new_file), img_copy, [cv2.IMWRITE_JPEG_QUALITY, 90])
-
-	if (args.mirror): flipImage(img_copy,new_file,makePath)
-	if (args.rotate): rotateImage(img_copy,new_file,makePath)
-
-# def makeResizePad(img,filename,scale):
-# 	remakePath = args.output_folder + str(scale)+"/"
-# 	if not os.path.exists(remakePath):
-# 		os.makedirs(remakePath)
-
-# 	img_copy = img.copy()
-
-# 	bType = cv2.BORDER_REPLICATE
-# 	if(args.border_type == 'solid'):
-# 		bType = cv2.BORDER_CONSTANT
-# 	elif (args.border_type == 'reflect'):
-# 		bType = cv2.BORDER_REFLECT
-
-# 	(h, w) = img_copy.shape[:2]
-
-# 	if(h < scale):
-
-# 	if(args.file_extension == "png"):
-# 		new_file = os.path.splitext(filename)[0] + ".png"
-# 		cv2.imwrite(os.path.join(remakePath, new_file), img_copy, [cv2.IMWRITE_PNG_COMPRESSION, 0])
-# 	elif(args.file_extension == "jpg"):
-# 		new_file = os.path.splitext(filename)[0] + ".jpg"
-# 		cv2.imwrite(os.path.join(remakePath, new_file), img_copy, [cv2.IMWRITE_JPEG_QUALITY, 90])
-
-# 	if (args.mirror): flipImage(img_copy,new_file,remakePath)
-# 	if (args.rotate): rotateImage(img_copy,new_file,remakePath)
+	saveImage(img_copy,makePath,filename)
+	if (args.mirror): flipImage(img_copy,filename,makePath)
+	if (args.rotate): rotateImage(img_copy,filename,makePath)
 
 def makeScale(img,filename,scale):
-
 	remakePath = args.output_folder + "scale_"+str(scale)+"/"
-	if not os.path.exists(remakePath):
-		os.makedirs(remakePath)
+	ensure_output_dir(remakePath)
 
-	img_copy = img.copy()
-	
-	img_copy = image_scale(img_copy, scale)
+	img_copy = image_scale(img, scale)
 
-	new_file = os.path.splitext(filename)[0] + ".png"
-	cv2.imwrite(os.path.join(remakePath, new_file), img_copy, [cv2.IMWRITE_PNG_COMPRESSION, 0])
-
-	if (args.mirror): flipImage(img_copy,new_file,remakePath)
-	if (args.rotate): rotateImage(img_copy,new_file,remakePath)
+	saveImage(img_copy,remakePath,filename)
+	if (args.mirror): flipImage(img_copy,filename,remakePath)
+	if (args.rotate): rotateImage(img_copy,filename,remakePath)
 
 # https://docs.opencv.org/4.5.2/df/d3d/tutorial_py_inpainting.html
 def inpaintSquare(img,scale):
-	print(scale)
 	(h, w) = img.shape[:2]
 	mask = np.zeros((h,w,1), np.uint8)
 	diff_x = scale - w
 	diff_y = scale - h
 
 	if(diff_x%2 == 0 and diff_y%2 == 0 ):
-		print('1')
 		img = cv2.copyMakeBorder(img, int(diff_y/2), int(diff_y/2), int(diff_x/2), int(diff_x/2), cv2.BORDER_CONSTANT,value=[255,255,255])
 		mask = cv2.copyMakeBorder(mask, int(diff_y/2), int(diff_y/2), int(diff_x/2), int(diff_x/2), cv2.BORDER_CONSTANT,value=[255,255,255])
 	elif(diff_x%2 == 0):
-		print('2')
 		img = cv2.copyMakeBorder(img, int(diff_y/2)+1, int(diff_y/2), int(diff_x/2), int(diff_x/2), cv2.BORDER_CONSTANT,value=[255,255,255])
 		mask = cv2.copyMakeBorder(mask, int(diff_y/2)+1, int(diff_y/2), int(diff_x/2), int(diff_x/2), cv2.BORDER_CONSTANT,value=[255,255,255])
 	else:
-		print('3')
 		img = cv2.copyMakeBorder(img, int(diff_y/2), int(diff_y/2), int(diff_x/2)+1, int(diff_x/2), cv2.BORDER_CONSTANT,value=[255,255,255])
 		mask = cv2.copyMakeBorder(mask, int(diff_y/2), int(diff_y/2), int(diff_x/2)+1, int(diff_x/2), cv2.BORDER_CONSTANT,value=[255,255,255])
-
-	print(img.shape)
-	print(mask.shape)
 
 	return cv2.inpaint(img,mask,3,cv2.INPAINT_NS)
 
 
 def makeSquare(img,filename,scale):
 	sqPath = args.output_folder + "sq-"+str(scale)+"/"
-	if not os.path.exists(sqPath):
-		os.makedirs(sqPath)
+	ensure_output_dir(sqPath)
 
-	img_sq = img.copy()
+	# No copy: every branch below (image_resize / copyMakeBorder / inpaintSquare)
+	# returns a new array rather than mutating the source in place.
+	img_sq = img
 	(h, w) = img_sq.shape[:2]
 	if((h < scale) and (w < scale)):
 		if(args.verbose): print('skip resize')
@@ -376,12 +392,7 @@ def makeSquare(img,filename,scale):
 	if(args.border_type=="inpaint"):
 		img_sq = inpaintSquare(img_sq, scale)
 	else:
-		bType = cv2.BORDER_REPLICATE
-		if(args.border_type == 'solid'):
-			bType = cv2.BORDER_CONSTANT
-		elif (args.border_type == 'reflect'):
-			bType = cv2.BORDER_REFLECT
-
+		bType = get_border_type()
 		bColor = [int(item) for item in args.border_color.split(',')]
 
 		(h, w) = img_sq.shape[:2]
@@ -432,89 +443,59 @@ def makeSquare(img,filename,scale):
 			else:
 				img_sq = cv2.copyMakeBorder(img_sq, int(diff/2), int(diff/2)+1, int(diff/2), int(diff/2)+1, bType,value=bColor)
 
-	if(args.file_extension == "png"):
-		new_file = os.path.splitext(filename)[0] + ".png"
-		cv2.imwrite(os.path.join(sqPath, new_file), img_sq, [cv2.IMWRITE_PNG_COMPRESSION, 0])
-	elif(args.file_extension == "jpg"):
-		new_file = os.path.splitext(filename)[0] + ".jpg"
-		cv2.imwrite(os.path.join(sqPath, new_file), img_sq, [cv2.IMWRITE_JPEG_QUALITY, 90])
-
-	if (args.mirror): flipImage(img_sq,new_file,sqPath)
-	if (args.rotate): rotateImage(img_sq,new_file,sqPath)
+	saveImage(img_sq,sqPath,filename)
+	if (args.mirror): flipImage(img_sq,filename,sqPath)
+	if (args.rotate): rotateImage(img_sq,filename,sqPath)
 
 	
 	
 
 def makeCanny(img,filename,scale):
 	make_path = args.output_folder + "canny-"+str(scale)+"/"
-	if not os.path.exists(make_path):
-		os.makedirs(make_path)
+	ensure_output_dir(make_path)
 
-	img_copy = img.copy()
-	img_copy = image_resize(img_copy, max = scale)
+	img_copy = image_resize(img, max = scale)
 	gray = processCanny(img_copy)
 
-	# save out
-	if(args.file_extension == "png"):
-		new_file = os.path.splitext(filename)[0] + ".png"
-		cv2.imwrite(os.path.join(make_path, new_file), gray, [cv2.IMWRITE_PNG_COMPRESSION, 0])
-	elif(args.file_extension == "jpg"):
-		new_file = os.path.splitext(filename)[0] + ".jpg"
-		cv2.imwrite(os.path.join(make_path, new_file), gray, [cv2.IMWRITE_JPEG_QUALITY, 90])
-
-	if (args.mirror): flipImage(img_copy,new_file,make_path)
-	if (args.rotate): rotateImage(img_copy,new_file,make_path)
+	saveImage(gray,make_path,filename)
+	if (args.mirror): flipImage(gray,filename,make_path)
+	if (args.rotate): rotateImage(gray,filename,make_path)
 
 def makeCrop(img,filename):
 	make_path = args.output_folder + "crop-"+str(args.height)+"x"+str(args.width)+"/"
-	if not os.path.exists(make_path):
-		os.makedirs(make_path)
+	ensure_output_dir(make_path)
 
-	img_copy = img.copy()
-	img_copy,error = arbitrary_crop(img_copy,args.height,args.width)
+	img_copy,error = arbitrary_crop(img,args.height,args.width)
 
 	if((img_copy.shape[0] != args.height) or (img_copy.shape[1] != args.width)):
 		# print(img_copy.shape[1], args.height, img_copy.shape[0], args.width)
 		print("unable to crop to the size requested")
 
 	if (error==False):
-		if(args.file_extension == "png"):
-			new_file = os.path.splitext(filename)[0] + ".png"
-			cv2.imwrite(os.path.join(make_path, new_file), img_copy, [cv2.IMWRITE_PNG_COMPRESSION, 0])
-		elif(args.file_extension == "jpg"):
-			new_file = os.path.splitext(filename)[0] + ".jpg"
-			cv2.imwrite(os.path.join(make_path, new_file), img_copy, [cv2.IMWRITE_JPEG_QUALITY, 90])
-
-		if (args.mirror): flipImage(img_copy,new_file,make_path)
-		if (args.rotate): rotateImage(img_copy,new_file,make_path)
+		saveImage(img_copy,make_path,filename)
+		if (args.mirror): flipImage(img_copy,filename,make_path)
+		if (args.rotate): rotateImage(img_copy,filename,make_path)
 	else:
 		if(args.verbose): print(filename+" returned an error")
 
 def makeSquareCrop(img,filename,scale):
 	make_path = args.output_folder + "sq-"+str(scale)+"/"
-	if not os.path.exists(make_path):
-		os.makedirs(make_path)
+	ensure_output_dir(make_path)
 
-	img_copy = img.copy()
-	img_copy = crop_to_square(img_copy)
+	img_copy = crop_to_square(img)
 	img_copy = image_resize(img_copy, max = scale)
 
-	if(args.file_extension == "png"):
-		new_file = os.path.splitext(filename)[0] + ".png"
-		cv2.imwrite(os.path.join(make_path, new_file), img_copy, [cv2.IMWRITE_PNG_COMPRESSION, 0])
-	elif(args.file_extension == "jpg"):
-		new_file = os.path.splitext(filename)[0] + ".jpg"
-		cv2.imwrite(os.path.join(make_path, new_file), img_copy, [cv2.IMWRITE_JPEG_QUALITY, 90])
-
-	if (args.mirror): flipImage(img_copy,new_file,make_path)
-	if (args.rotate): rotateImage(img_copy,new_file,make_path)
+	saveImage(img_copy,make_path,filename)
+	if (args.mirror): flipImage(img_copy,filename,make_path)
+	if (args.rotate): rotateImage(img_copy,filename,make_path)
 
 def makeManySquares(img,filename,scale):
 	make_path = args.output_folder + "many_squares-"+str(scale)+"/"
-	if not os.path.exists(make_path):
-		os.makedirs(make_path)
+	ensure_output_dir(make_path)
 
-	img_copy = img.copy()
+	# Crops below are slice views and each is resized into a new array before
+	# saving, so the source img is never mutated. No copy needed.
+	img_copy = img
 	(h, w) = img_copy.shape[:2]
 	img_ratio = h/w
 
@@ -535,8 +516,8 @@ def makeManySquares(img,filename,scale):
 
 	elif(img_ratio <= .8):
 		#crop images from left and right
-		print(os.path.splitext(filename)[0] + ': wide image')
-		
+		if(args.verbose): print(os.path.splitext(filename)[0] + ': wide image')
+
 		crop = img_copy[0:h,0:h]
 		crop = image_resize(crop, max = scale)
 		saveImage(crop,make_path,filename+"-1")
@@ -560,89 +541,96 @@ def makeManySquares(img,filename,scale):
 
 def makeSquareCropPatch(img,filename,scale):
 	make_path = args.output_folder + "sq-"+str(scale)+"/"
-	if not os.path.exists(make_path):
-		os.makedirs(make_path)
+	ensure_output_dir(make_path)
 
-	img_copy = img.copy()
-	img_copy = crop_square_patch(img_copy,args.max_size)
+	img_copy = crop_square_patch(img,args.max_size)
 
-	new_file = os.path.splitext(filename)[0] + ".png"
-	cv2.imwrite(os.path.join(make_path, new_file), img_copy, [cv2.IMWRITE_PNG_COMPRESSION, 0])
-
-	if (args.mirror): flipImage(img_copy,new_file,make_path)
-	if (args.rotate): rotateImage(img_copy,new_file,make_path)
+	saveImage(img_copy,make_path,filename)
+	if (args.mirror): flipImage(img_copy,filename,make_path)
+	if (args.rotate): rotateImage(img_copy,filename,make_path)
 
 def makePix2Pix(img,filename,scale,direction="BtoA",value=[0,0,0]):
-	img_p2p = img.copy()
-	img_p2p = image_resize(img_p2p, max = scale)
+	img_p2p = image_resize(img, max = scale)
 	(h, w) = img_p2p.shape[:2]
 	bType = cv2.BORDER_CONSTANT
-	
+
 	make_path = args.output_folder + "pix2pix-"+str(h)+"/"
-	if not os.path.exists(make_path):
-		os.makedirs(make_path)
+	ensure_output_dir(make_path)
 
 	canny = cv2.cvtColor(processCanny(img_p2p),cv2.COLOR_GRAY2RGB)
-	
+
 	if(direction=="BtoA"):
 		img_p2p = cv2.copyMakeBorder(img_p2p, 0, 0, w, 0, bType, None, value)
 		img_p2p[0:h,0:w] = canny
-	
-	if(args.file_extension == "png"):
-		new_file = os.path.splitext(filename)[0] + ".png"
-		cv2.imwrite(os.path.join(make_path, new_file), img_p2p, [cv2.IMWRITE_PNG_COMPRESSION, 0])
-	elif(args.file_extension == "jpg"):
-		new_file = os.path.splitext(filename)[0] + ".jpg"
-		cv2.imwrite(os.path.join(make_path, new_file), img_p2p, [cv2.IMWRITE_JPEG_QUALITY, 90])
 
-def flipImage(img,filename,path):
+	saveImage(img_p2p,make_path,filename)
+
+def flipImage(img, filename, path):
+	"""Create and save a horizontally flipped version of an image.
+
+	Args:
+		img: OpenCV image array
+		filename: Base filename for the output
+		path: Directory path where the flipped image will be saved
+	"""
 	flip_img = cv2.flip(img, 1)
 	flip_file = os.path.splitext(filename)[0] + "-flipped"
 	saveImage(flip_img,path,flip_file)
 
-def rotateImage(img,filename,path):
-	r = img.copy() 
+def rotateImage(img, filename, path):
+	"""Create and save 90, 180, and 270 degree rotated versions of an image.
 
-	r = imutils.rotate_bound(r, 90)
-	saveImage(r,path,filename+"-rot90")
-
-	r = imutils.rotate_bound(r, 90)
-	saveImage(r,path,filename+"-rot180")
-
-	r = imutils.rotate_bound(r, 90)
-	saveImage(r,path,filename+"-rot270")
+	Args:
+		img: OpenCV image array
+		filename: Base filename for the output
+		path: Directory path where the rotated images will be saved
+	"""
+	# cv2.rotate does exact 90-degree pixel permutations: faster and lossless
+	# compared to imutils.rotate_bound (which uses interpolated warpAffine).
+	saveImage(cv2.rotate(img, cv2.ROTATE_90_CLOCKWISE),path,filename+"-rot90")
+	saveImage(cv2.rotate(img, cv2.ROTATE_180),path,filename+"-rot180")
+	saveImage(cv2.rotate(img, cv2.ROTATE_90_COUNTERCLOCKWISE),path,filename+"-rot270")
 	
-def processImage(img,filename):
+def processImage(img, filename):
+	"""Process an image based on the selected process type.
 
-	if args.process_type == "resize":	
+	Args:
+		img: OpenCV image array
+		filename: Base filename for output files
+	"""
+	if args.process_type == "resize":
 		makeResize(img,filename,args.max_size)
-	if args.process_type == "resize_pad":	
-		makeResizePad(img,filename,args.max_size)
-	if args.process_type == "square":
+	elif args.process_type == "square":
 		makeSquare(img,filename,args.max_size)
-	if args.process_type == "crop_to_square":
+	elif args.process_type == "crop_to_square":
 		makeSquareCrop(img,filename,args.max_size)
-	if args.process_type == "canny":
+	elif args.process_type == "canny":
 		makeCanny(img,filename,args.max_size)
-	if args.process_type == "canny-pix2pix":
+	elif args.process_type == "canny-pix2pix":
 		makePix2Pix(img,filename,args.max_size)
-	if args.process_type == "crop_square_patch":
+	elif args.process_type == "crop_square_patch":
 		makeSquareCropPatch(img,filename,args.max_size)
-	if args.process_type == "scale":
+	elif args.process_type == "scale":
 		makeScale(img,filename,args.scale)
-	if args.process_type == "many_squares":
+	elif args.process_type == "many_squares":
 		makeManySquares(img,filename,args.max_size)
-	if args.process_type == "crop":
+	elif args.process_type == "crop":
 		makeCrop(img,filename)
-	if args.process_type == "distance":
+	elif args.process_type == "distance":
 		makeDistance(img,filename,args.max_size)
+
+def process_file(file_path, out_name):
+	"""Read one image and run the selected process. Safe to call from a thread:
+	OpenCV's imread/resize/imwrite release the GIL, so this parallelizes well."""
+	img = cv2.imread(file_path)
+	if hasattr(img, 'copy'):
+		if(args.verbose): print('processing image: ' + os.path.basename(file_path))
+		processImage(img, out_name)
 
 def main():
 	global args
-	global count
 	global inter
 	args = parse_args()
-	count = int(0)
 	inter = cv2.INTER_CUBIC
 	os.environ['OPENCV_IO_ENABLE_JASPER']= "true"
 
@@ -652,13 +640,13 @@ def main():
 	if os.path.isdir(args.input_folder):
 		print("Processing folder: " + args.input_folder)
 	elif os.path.isfile(args.input_folder):
-		img = cv2.imread(args.input_folder)
-		filename = args.input_folder.split('/')[-1]
+		filename = os.path.basename(args.input_folder)
+		process_file(args.input_folder, os.path.splitext(filename)[0])
 
-		if hasattr(img, 'copy'):
-			if(args.verbose): print('processing image: ' + filename)  
-			processImage(img,os.path.splitext(filename)[0])
-
+	# Enumerate files serially (deterministic order + thread-safe tagging /
+	# numbered naming), then process them in parallel.
+	tasks = []
+	count = 0
 	for root, subdirs, files in os.walk(args.input_folder):
 		if(args.verbose): print('--\nroot = ' + root)
 
@@ -666,31 +654,34 @@ def main():
 			if(args.verbose): print('\t- subdirectory ' + subdir)
 
 		for filename in files:
-			skipped = False
+			if filename.startswith('.'):
+				continue
 			file_path = os.path.join(root, filename)
 			if(args.verbose): print('\t- file %s (full path: %s)' % (filename, file_path))
 
 			if(args.skip_tags != None):
+				skipped = False
 				tags = [str(item) for item in args.skip_tags.split(',')]
-				# tags = mac_tag.get(file_path)
-				# print(tags)
 				for tag in tags:
 					matches = mac_tag.match(tag,file_path)
 					if(file_path in matches):
 						print('skipping file: ' + filename)
 						skipped = True
-						
-			
-			if not skipped:
-				img = cv2.imread(file_path)
+				if skipped:
+					continue
 
-				if hasattr(img, 'copy'):
-					if(args.verbose): print('processing image: ' + filename)
-					if args.name:
-						processImage(img,os.path.splitext(filename)[0])
-					else:
-						processImage(img,str(count))
-					count = count + int(1)
+			out_name = os.path.splitext(filename)[0] if args.name else str(count)
+			count += 1
+			tasks.append((file_path, out_name))
+
+	workers = args.workers if args.workers > 0 else (os.cpu_count() or 1)
+	if workers == 1 or len(tasks) <= 1:
+		for file_path, out_name in tasks:
+			process_file(file_path, out_name)
+	else:
+		with ThreadPoolExecutor(max_workers=workers) as pool:
+			# list() forces iteration so exceptions surface instead of being swallowed
+			list(pool.map(lambda t: process_file(*t), tasks))
 
 
 if __name__ == "__main__":
