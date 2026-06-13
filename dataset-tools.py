@@ -199,11 +199,16 @@ def saveImage(img, path, filename):
 		path: Directory path where the image will be saved
 		filename: Base filename (extension will be replaced based on args.file_extension)
 	"""
+	# `filename` is already an extension-stripped stem (see out_name in main).
+	# Do NOT run splitext again here: filenames whose stem contains a dot
+	# (e.g. a float timestamp like "krea-large_1780978385.9164643_frame_0")
+	# would have everything after that dot stripped as a bogus "extension",
+	# collapsing many distinct frames onto one output name and overwriting them.
 	if(args.file_extension == "png"):
-		new_file = os.path.splitext(filename)[0] + ".png"
+		new_file = filename + ".png"
 		cv2.imwrite(os.path.join(path, new_file), img, [cv2.IMWRITE_PNG_COMPRESSION, args.png_compression])
 	elif(args.file_extension == "jpg"):
-		new_file = os.path.splitext(filename)[0] + ".jpg"
+		new_file = filename + ".jpg"
 		cv2.imwrite(os.path.join(path, new_file), img, [cv2.IMWRITE_JPEG_QUALITY, args.jpg_quality])
 
 def image_scale(image, scalar = 1.0):
@@ -574,7 +579,9 @@ def flipImage(img, filename, path):
 		path: Directory path where the flipped image will be saved
 	"""
 	flip_img = cv2.flip(img, 1)
-	flip_file = os.path.splitext(filename)[0] + "-flipped"
+	# filename is already a stem; appending directly avoids the dotted-stem
+	# truncation described in saveImage().
+	flip_file = filename + "-flipped"
 	saveImage(flip_img,path,flip_file)
 
 def rotateImage(img, filename, path):
